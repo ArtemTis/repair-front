@@ -1,0 +1,218 @@
+.history-page {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.history-page__panel {
+  width: 100%;
+  max-width: 720px;
+  overflow: hidden;
+}
+
+.history-page__panel--detail {
+  max-width: 800px;
+}
+
+.history-page__header {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.history-page__header--detail {
+  border-bottom: 0;
+  padding-top: 0;
+}
+
+.history-page__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.history-page__subtitle {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.history-page__body {
+  padding: 18px 20px 22px;
+}
+
+.history-page__hint,
+.history-page__empty {
+  margin: 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 28px 12px;
+  font-size: 0.98rem;
+}
+
+.history-page__empty {
+  font-weight: 600;
+  color: var(--color-text-soft);
+}
+
+.history-page__error {
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
+.history-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-page__list-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(234, 223, 213, 0.9);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+  font: inherit;
+  color: inherit;
+}
+
+.history-page__list-item:hover {
+  border-color: rgba(249, 115, 22, 0.45);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
+}
+
+.history-page__list-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+}
+
+.history-page__list-item-title {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.history-page__list-item-desc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.history-page__list-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+
+.history-page__list-item-date {
+  font-size: 0.78rem;
+  color: var(--color-text-soft);
+}
+
+.history-page__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.history-page__badge--in_progress {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.history-page__badge--success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.history-page__badge--failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.history-page__badge--cancelled {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.history-page__detail-toolbar {
+  padding: 16px 20px 0;
+}
+
+.history-page__detail {
+  margin: 0;
+  padding: 8px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.history-page__detail-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 12px 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(234, 223, 213, 0.65);
+}
+
+.history-page__detail-row:last-child {
+  border-bottom: 0;
+}
+
+.history-page__detail-row dt {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-page__detail-row dd {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .history-page__detail-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

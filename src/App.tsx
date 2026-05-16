@@ -1,26 +1,42 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+// src/App.tsx
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AppRoutes, RoutePath, routerConfig } from "./shared/config/routerConfig";
+import { useAppSelector } from "./shared/store/hooks";
+import { Layout } from "./widgets/Layout/ui/Layout";
 
-function App() {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const currentUser = useAppSelector((state) => state.auth.user);
+
+  if (!currentUser) {
+    return <Navigate to={RoutePath.auth} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+export const App = () => {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+    <Layout>
+      <Routes>
+        {Object.entries(routerConfig).map(([routeName, { path, element }]) => {
+          const isAuthRoute = routeName === AppRoutes.AUTH;
 
-export default App;
+          return (
+            <Route
+              key={path}
+              path={path}
+              element={
+                isAuthRoute ? (
+                  element
+                ) : (
+                  <ProtectedRoute>{element}</ProtectedRoute>
+                )
+              }
+            />
+          );
+        })}
+        <Route path="*" element={<Navigate to={RoutePath.chat} replace />} />
+      </Routes>
+    </Layout>
+  );
+};
