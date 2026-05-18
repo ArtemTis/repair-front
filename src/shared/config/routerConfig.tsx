@@ -6,12 +6,14 @@ import ProfilePage from "../../pages/ProfilePage/ProfilePage";
 import DevicesPage from "../../pages/ProfilePage/DevicesPage";
 import SkillsPage from "../../pages/ProfilePage/SkillsPage";
 import ArticlesPage from "../../pages/ArticlesPage/ArticlesPage";
+import ServicesPage from "../../pages/ServicesPage/ServicesPage";
 
 export enum AppRoutes {
   AUTH = "auth",
   CHAT = "chat",
   HISTORY = "history",
   ARTICLES = "articles",
+  SERVICES = "services",
   PROFILE = "profile",
   SKILLS = "skills",
   DEVICES = "devices"
@@ -22,6 +24,7 @@ export const RoutePath: Record<AppRoutes, string> = {
   [AppRoutes.CHAT]: "/",
   [AppRoutes.HISTORY]: "/history",
   [AppRoutes.ARTICLES]: "/articles",
+  [AppRoutes.SERVICES]: "/services",
   [AppRoutes.PROFILE]: "/profile",
   [AppRoutes.DEVICES]: "/profile/devices",
   [AppRoutes.SKILLS]: "/profile/skills"
@@ -43,6 +46,10 @@ export const routerConfig: Record<AppRoutes, RouteProps> = {
   [AppRoutes.ARTICLES]: {
     path: `${RoutePath.articles}/*`,
     element: <ArticlesPage />,
+  },
+  [AppRoutes.SERVICES]: {
+    path: RoutePath.services,
+    element: <ServicesPage />,
   },
   [AppRoutes.PROFILE]: {
     path: RoutePath.profile,

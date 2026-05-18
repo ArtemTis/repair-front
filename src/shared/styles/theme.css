@@ -20,6 +20,9 @@
   --radius-lg: 24px;
   --radius-xl: 32px;
   --container-width: 1200px;
+  /* Единые отступы области контента (под хедером) для всех страниц */
+  --layout-main-padding-block: 22px;
+  --layout-main-padding-inline: 20px;
   --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }

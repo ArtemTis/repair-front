@@ -29,6 +29,9 @@ export const Header = () => {
           <NavLink to={RoutePath.articles} className={getLinkClassName}>
             Статьи
           </NavLink>
+          <NavLink to={RoutePath.services} className={getLinkClassName}>
+            Сервисные центры
+          </NavLink>
           <NavLink to={RoutePath.profile} className={getLinkClassName}>
             Профиль
           </NavLink>

@@ -3,7 +3,7 @@ import ChatInput from "./components/ChatInput";
 import ChatMessages from "./components/ChatMessages";
 import type { ChatMessage } from "./types";
 import "./ChatPage.css";
-import { askDeepSeek } from "../../shared/api/ai";
+import { askAIagent } from "../../shared/api/ai";
 import { Card, TextInput, Button } from "../../shared/ui";
 import { useAppSelector } from "../../shared/store/hooks";
 import {
@@ -88,7 +88,10 @@ const ChatPage = () => {
     [chats]
   );
 
-  const activeTitle = activeChat?.title ?? "Новый чат";
+  // При activeChatId === null запрос пропускается, но RTK Query может кратко держать
+  // кэш предыдущего чата в `data` — заголовок должен явно зависеть от выбранного id.
+  const activeTitle =
+    activeChatId != null ? (activeChat?.title ?? "Новый чат") : "Новый чат";
 
   const canSend = useMemo(
     () => inputValue.trim().length > 0 && !isAwaitingResponse && !isCreatingChat,
@@ -141,16 +144,18 @@ const ChatPage = () => {
       } else {
         await addAssistantChatMessage({
           chatId,
+          userId,
           message: { author: "me", text: messageText, created_at: new Date().toISOString() },
         }).unwrap();
       }
 
-      const response = await askDeepSeek(messageText);
+      const response = await askAIagent(messageText);
       const companionMessage = createLocalMessage(response, "companion");
       setMessages((prevMessages) => [...prevMessages, companionMessage]);
 
       await addAssistantChatMessage({
         chatId,
+        userId,
         message: { author: "companion", text: response, created_at: new Date().toISOString() },
       }).unwrap();
     } catch (err) {

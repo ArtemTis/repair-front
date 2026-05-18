@@ -44,6 +44,19 @@ type AssistantChatMessageCreateBody = {
   created_at?: string;
 };
 
+type AssistantChatMessageAddArg = {
+  chatId: number;
+  userId: number;
+  message: AssistantChatMessageCreateBody;
+};
+
+/** Совпадает с логикой title на бэкенде при первом сообщении пользователя */
+const assistantChatTitleFromText = (text: string): string => {
+  const firstLine = text.trim().split(/\r?\n/)[0] ?? '';
+  if (!firstLine) return 'Новый чат';
+  return firstLine.length > 72 ? `${firstLine.slice(0, 72)}...` : firstLine;
+};
+
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
@@ -255,13 +268,9 @@ export const baseApi = createApi({
         result
           ? [
               ...result.map(({ id }) => ({ type: 'AssistantChat' as const, id })),
-              { type: 'AssistantChat', id: 'LIST' },
               { type: 'AssistantChat', id: `USER_${userId}` },
             ]
-          : [
-              { type: 'AssistantChat', id: 'LIST' },
-              { type: 'AssistantChat', id: `USER_${userId}` },
-            ],
+          : [{ type: 'AssistantChat', id: `USER_${userId}` }],
     }),
     getAssistantChatById: build.query<IAssistantChatWithMessages, number>({
       query: (id) => `/api/assistant-chats/${id}`,
@@ -269,10 +278,21 @@ export const baseApi = createApi({
     }),
     createAssistantChat: build.mutation<IAssistantChatWithMessages, AssistantChatCreateBody>({
       query: (body) => ({ url: '/api/assistant-chats', method: 'POST', body }),
-      invalidatesTags: (_r, _e, body) => [
-        { type: 'AssistantChat', id: 'LIST' },
-        { type: 'AssistantChat', id: `USER_${body.user_id}` },
-      ],
+      invalidatesTags: [],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          const { messages: _m, ...chatRow } = data;
+          dispatch(
+            baseApi.util.updateQueryData('getAssistantChatsByUserId', arg.user_id, (draft) => {
+              draft.unshift(chatRow);
+            })
+          );
+          dispatch(baseApi.util.upsertQueryData('getAssistantChatById', data.id, data));
+        } catch {
+          /* мутация отклонена */
+        }
+      },
     }),
     updateAssistantChat: build.mutation<
       IAssistantChat,
@@ -285,29 +305,50 @@ export const baseApi = createApi({
       }),
       invalidatesTags: (_r, _e, { id, userId }) => [
         { type: 'AssistantChat', id },
-        { type: 'AssistantChat', id: 'LIST' },
         { type: 'AssistantChat', id: `USER_${userId}` },
       ],
     }),
-    addAssistantChatMessage: build.mutation<
-      IAssistantChatMessage,
-      { chatId: number; message: AssistantChatMessageCreateBody }
-    >({
+    addAssistantChatMessage: build.mutation<IAssistantChatMessage, AssistantChatMessageAddArg>({
       query: ({ chatId, message }) => ({
         url: `/api/assistant-chats/${chatId}/messages`,
         method: 'POST',
         body: message,
       }),
-      invalidatesTags: (_r, _e, { chatId }) => [
-        { type: 'AssistantChat', id: chatId },
-        { type: 'AssistantChat', id: 'LIST' },
-      ],
+      invalidatesTags: [],
+      async onQueryStarted({ chatId, userId, message }, { dispatch, queryFulfilled }) {
+        try {
+          const { data: newMsg } = await queryFulfilled;
+          dispatch(
+            baseApi.util.updateQueryData('getAssistantChatById', chatId, (draft) => {
+              draft.messages.push(newMsg);
+              draft.updated_at = newMsg.created_at;
+              if (message.author === 'me' && draft.title === 'Новый чат') {
+                draft.title = assistantChatTitleFromText(message.text);
+              }
+            })
+          );
+          dispatch(
+            baseApi.util.updateQueryData('getAssistantChatsByUserId', userId, (draft) => {
+              const idx = draft.findIndex((c) => c.id === chatId);
+              if (idx === -1) return;
+              const row = draft[idx];
+              const nextTitle =
+                message.author === 'me' && row.title === 'Новый чат'
+                  ? assistantChatTitleFromText(message.text)
+                  : row.title;
+              draft.splice(idx, 1);
+              draft.unshift({ ...row, title: nextTitle, updated_at: newMsg.created_at });
+            })
+          );
+        } catch {
+          /* ошибка сети / 4xx */
+        }
+      },
     }),
     deleteAssistantChat: build.mutation<void, { id: number; userId: number }>({
       query: ({ id }) => ({ url: `/api/assistant-chats/${id}`, method: 'DELETE' }),
       invalidatesTags: (_r, _e, { id, userId }) => [
         { type: 'AssistantChat', id },
-        { type: 'AssistantChat', id: 'LIST' },
         { type: 'AssistantChat', id: `USER_${userId}` },
       ],
     }),
