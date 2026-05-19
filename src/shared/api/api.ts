@@ -17,6 +17,7 @@ import type {
   IRegisterBody,
   IArticle,
 } from '../types';
+import { captionForRepairChatTitle } from '../chat/repairAssistantEnvelope';
 
 const BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
 
@@ -52,7 +53,8 @@ type AssistantChatMessageAddArg = {
 
 /** Совпадает с логикой title на бэкенде при первом сообщении пользователя */
 const assistantChatTitleFromText = (text: string): string => {
-  const firstLine = text.trim().split(/\r?\n/)[0] ?? '';
+  const caption = captionForRepairChatTitle(text);
+  const firstLine = caption.trim().split(/\r?\n/)[0] ?? '';
   if (!firstLine) return 'Новый чат';
   return firstLine.length > 72 ? `${firstLine.slice(0, 72)}...` : firstLine;
 };

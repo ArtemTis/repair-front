@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import ChatInput from "./components/ChatInput";
+import ChatInput, { type PendingRepairChatAttachment } from "./components/ChatInput";
 import ChatMessages from "./components/ChatMessages";
 import type { ChatMessage } from "./types";
 import "./ChatPage.css";
-import { askAIagent } from "../../shared/api/ai";
+import { captionForRepairChatTitle, dataUrlFromStored, parseRepairAssistantStoredMessage, serializeRepairUserMessageForPersistence, type RepairStoredAttachment } from "../../shared/chat/repairAssistantEnvelope";
+import { askAIagent, stripBase64DataUrlPayload } from "../../shared/api/ai";
+import { chatMessagesToRepairHistory } from "./chatRepairHistory";
 import { Card, TextInput, Button } from "../../shared/ui";
 import { useAppSelector } from "../../shared/store/hooks";
 import {
@@ -14,7 +16,7 @@ import {
   useGetAssistantChatsByUserIdQuery,
   useUpdateAssistantChatMutation,
 } from "../../shared/api/api";
-import type { AssistantMessageAuthor, IAssistantChat, IAssistantChatMessage } from "../../shared/types";
+import type { IAssistantChat, IAssistantChatMessage } from "../../shared/types";
 
 const createTime = () =>
   new Date().toLocaleTimeString("ru-RU", {
@@ -30,26 +32,71 @@ const formatChatDate = (value: string) =>
     minute: "2-digit",
   });
 
-const titleFromText = (text: string) => {
-  const firstLine = text.trim().split(/\r?\n/)[0] ?? "";
-  if (!firstLine) return "Новый чат";
-  return firstLine.length > 72 ? `${firstLine.slice(0, 72)}...` : firstLine;
+const titleFromText = (apiMessageText: string) => {
+  const captionLine = captionForRepairChatTitle(apiMessageText).trim().split(/\r?\n/)[0] ?? "";
+  if (!captionLine) return "Новый чат";
+  return captionLine.length > 72 ? `${captionLine.slice(0, 72)}...` : captionLine;
 };
 
-const mapMessage = (message: IAssistantChatMessage): ChatMessage => ({
-  id: String(message.id),
-  text: message.text,
-  author: message.author,
-  timestamp: new Date(message.created_at).toLocaleTimeString("ru-RU", {
+const mapMessage = (message: IAssistantChatMessage): ChatMessage => {
+  const timestamp = new Date(message.created_at).toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
-  }),
-});
+  });
+  const id = String(message.id);
 
-const createLocalMessage = (text: string, author: AssistantMessageAuthor): ChatMessage => ({
-  id: `${Date.now()}-${author}-${Math.random().toString(16).slice(2)}`,
+  if (message.author !== "me") {
+    return {
+      id,
+      author: "companion",
+      text: message.text,
+      timestamp,
+    };
+  }
+
+  const raw = message.text;
+  const parsed = parseRepairAssistantStoredMessage(raw);
+  const env = parsed.envelope;
+
+  return {
+    id,
+    author: "me",
+    text: env ? (env.text ?? "") : raw,
+    persistedText: raw,
+    timestamp,
+    attachments: env?.attachments?.map((a) => ({
+      kind: a.kind === "audio" ? "audio" as const : "image" as const,
+      dataUrl: dataUrlFromStored(a),
+    })),
+  };
+};
+
+function pendingRepairAudioFormat(file: PendingRepairChatAttachment): "mp3" | "wav" {
+  const mime = file.mimeType.toLowerCase();
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
+  return "wav";
+}
+
+function pendingToRepairStoredAttachment(file: PendingRepairChatAttachment): RepairStoredAttachment {
+  const base64 = stripBase64DataUrlPayload(file.dataUrl);
+  if (file.kind === "image") {
+    return {
+      kind: "image",
+      mimeType: file.mimeType.startsWith("image/") ? file.mimeType : "image/jpeg",
+      base64,
+    };
+  }
+  return {
+    kind: "audio",
+    format: pendingRepairAudioFormat(file),
+    base64,
+  };
+}
+
+const createCompanionBubble = (text: string): ChatMessage => ({
+  id: `${Date.now()}-companion-${Math.random().toString(16).slice(2)}`,
   text,
-  author,
+  author: "companion",
   timestamp: createTime(),
 });
 
@@ -67,6 +114,7 @@ const ChatPage = () => {
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<PendingRepairChatAttachment[]>([]);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
@@ -94,8 +142,11 @@ const ChatPage = () => {
     activeChatId != null ? (activeChat?.title ?? "Новый чат") : "Новый чат";
 
   const canSend = useMemo(
-    () => inputValue.trim().length > 0 && !isAwaitingResponse && !isCreatingChat,
-    [inputValue, isAwaitingResponse, isCreatingChat]
+    () =>
+      (inputValue.trim().length > 0 || pendingAttachments.length > 0) &&
+      !isAwaitingResponse &&
+      !isCreatingChat,
+    [inputValue, pendingAttachments.length, isAwaitingResponse, isCreatingChat]
   );
 
   useEffect(() => {
@@ -116,18 +167,44 @@ const ChatPage = () => {
     setActiveChatId(null);
     setMessages([]);
     setInputValue("");
+    setPendingAttachments([]);
   };
 
   const handleSendMessage = async () => {
-    const messageText = inputValue.trim();
-    if (!messageText || isAwaitingResponse || isCreatingChat || !userId) {
+    const captionText = inputValue.trim();
+    if ((!captionText && pendingAttachments.length === 0) || isAwaitingResponse || isCreatingChat || !userId) {
       return;
     }
 
-    const userMessage = createLocalMessage(messageText, "me");
+    const storedAttachments = pendingAttachments.map(pendingToRepairStoredAttachment);
+
+    const userApiText =
+      pendingAttachments.length === 0
+        ? captionText
+        : serializeRepairUserMessageForPersistence(captionText, storedAttachments);
+
+    const userMessage: ChatMessage = {
+      id: `${Date.now()}-me-${Math.random().toString(16).slice(2)}`,
+      author: "me",
+      text: captionText,
+      persistedText: userApiText,
+      timestamp: createTime(),
+      attachments: pendingAttachments.map((p) => ({
+        kind: p.kind === "audio" ? "audio" as const : "image" as const,
+        dataUrl: p.dataUrl,
+      })),
+    };
+
+    const historyPrior = [...messages];
+    const userTurnForApi = {
+      role: "user" as const,
+      caption: captionText,
+      attachments: storedAttachments,
+    };
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInputValue("");
+    setPendingAttachments([]);
     setIsAwaitingResponse(true);
 
     try {
@@ -136,8 +213,8 @@ const ChatPage = () => {
       if (!chatId) {
         const createdChat = await createAssistantChat({
           user_id: userId,
-          title: titleFromText(messageText),
-          messages: [{ author: "me", text: messageText, created_at: new Date().toISOString() }],
+          title: titleFromText(userApiText),
+          messages: [{ author: "me", text: userApiText, created_at: new Date().toISOString() }],
         }).unwrap();
         chatId = createdChat.id;
         setActiveChatId(chatId);
@@ -145,12 +222,15 @@ const ChatPage = () => {
         await addAssistantChatMessage({
           chatId,
           userId,
-          message: { author: "me", text: messageText, created_at: new Date().toISOString() },
+          message: { author: "me", text: userApiText, created_at: new Date().toISOString() },
         }).unwrap();
       }
 
-      const response = await askAIagent(messageText);
-      const companionMessage = createLocalMessage(response, "companion");
+      const response = await askAIagent([
+        ...chatMessagesToRepairHistory(historyPrior),
+        userTurnForApi,
+      ]);
+      const companionMessage = createCompanionBubble(response);
       setMessages((prevMessages) => [...prevMessages, companionMessage]);
 
       await addAssistantChatMessage({
@@ -168,6 +248,7 @@ const ChatPage = () => {
         text: detail,
         author: "companion",
         timestamp: createTime(),
+        omitFromAiHistory: true,
       };
 
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
@@ -195,6 +276,7 @@ const ChatPage = () => {
     setActiveChatId(id);
     setMessages([]);
     setInputValue("");
+    setPendingAttachments([]);
   };
 
   const startRename = (chat: IAssistantChat) => {
@@ -400,6 +482,9 @@ const ChatPage = () => {
               onChange={setInputValue}
               onSend={handleSendMessage}
               canSend={canSend}
+              disabled={isAwaitingResponse || isCreatingChat}
+              pendingAttachments={pendingAttachments}
+              onAttachmentsChange={setPendingAttachments}
             />
           </div>
         </div>
