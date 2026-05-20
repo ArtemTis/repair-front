@@ -4,6 +4,7 @@ import {
   useAddUserToolMutation,
   useCreateToolMutation,
   useDeleteUserToolMutation,
+  useGetAssistantChatsByUserIdQuery,
   useGetRepairGuidesByUserIdQuery,
   useGetRepairHistoryByUserIdQuery,
   useGetSkillsQuery,
@@ -38,6 +39,7 @@ const ProfilePage = () => {
   const { data: userTools = [] } = useGetUserToolsByUserIdQuery(queryUserId);
   const { data: repairGuides = [] } = useGetRepairGuidesByUserIdQuery(queryUserId);
   const { data: repairHistory = [] } = useGetRepairHistoryByUserIdQuery(queryUserId);
+  const { data: assistantChats = [] } = useGetAssistantChatsByUserIdQuery(queryUserId);
 
   const [updateUser, { isLoading: isSkillUpdating }] = useUpdateUserMutation();
   const [addUserTool, { isLoading: isAddingTool }] = useAddUserToolMutation();
@@ -79,13 +81,14 @@ const ProfilePage = () => {
     const failed = repairHistory.filter((item) => item.status === "failed").length;
 
     return {
-      requests: repairGuides.length,
+      requests: assistantChats.length,
+      guides: repairGuides.length,
       repairs: repairHistory.length,
       success,
       inProgress,
       failed,
     };
-  }, [repairGuides.length, repairHistory]);
+  }, [assistantChats.length, repairGuides.length, repairHistory]);
 
   if (!displayUser || !userId) {
     return null;
@@ -245,6 +248,14 @@ const ProfilePage = () => {
             <div className="stat-item">
               <strong>{repairStats.inProgress}</strong>
               <span>В работе</span>
+            </div>
+            <div className="stat-item">
+              <strong>{repairStats.guides}</strong>
+              <span>Инструкций</span>
+            </div>
+            <div className="stat-item">
+              <strong>{repairStats.failed}</strong>
+              <span>Не удалось</span>
             </div>
           </div>
         </Card>

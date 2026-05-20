@@ -11,12 +11,34 @@ import { useAppSelector } from "../../shared/store/hooks";
 import {
   useAddAssistantChatMessageMutation,
   useCreateAssistantChatMutation,
+  useCreateDeviceMutation,
+  useCreateRepairHistoryMutation,
+  useDeleteRepairHistoryMutation,
   useDeleteAssistantChatMutation,
   useGetAssistantChatByIdQuery,
   useGetAssistantChatsByUserIdQuery,
+  useGetDevicesByUserIdQuery,
+  useGetRepairHistoryByUserIdQuery,
+  useUpdateRepairHistoryMutation,
+  useGetSkillsQuery,
+  useGetToolsQuery,
+  useGetUserToolsByUserIdQuery,
   useUpdateAssistantChatMutation,
 } from "../../shared/api/api";
 import type { IAssistantChat, IAssistantChatMessage } from "../../shared/types";
+import {
+  AI_DETECTED_DEVICE_MODEL,
+  formatDeviceName,
+} from "../../shared/repairHistory/deviceDisplay";
+import {
+  getSavedChatReportLinks,
+  removeChatReportSection,
+  withChatReportRef,
+} from "../../shared/repairHistory/chatReportLink";
+import {
+  appendRepairReportSection,
+  repairRecordsShareDeviceName,
+} from "../../shared/repairHistory/repairHistoryReports";
 
 const createTime = () =>
   new Date().toLocaleTimeString("ru-RU", {
@@ -100,6 +122,138 @@ const createCompanionBubble = (text: string): ChatMessage => ({
   timestamp: createTime(),
 });
 
+type ReportSaveStatus = "idle" | "saving" | "saved" | "error";
+
+type ReportSaveEntry = {
+  status: ReportSaveStatus;
+  repairHistoryId?: number;
+};
+
+const cleanMarkdownText = (value: string) =>
+  value
+    .replace(/[#*_`>~|-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const firstMeaningfulLine = (value: string, fallback: string) => {
+  const line = value
+    .split(/\r?\n/)
+    .map((item) => cleanMarkdownText(item))
+    .find(Boolean);
+  if (!line) return fallback;
+  return line.length > 180 ? `${line.slice(0, 180)}...` : line;
+};
+
+const extractDeviceNameFromAssistantAnswer = (text: string): string | null => {
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine
+      .replace(/^[\s#>*_\-`]+/, "")
+      .replace(/[*_`]+/g, "")
+      .trim();
+    const match = line.match(/^название\s+техники\s*[:—-]\s*(.+)$/i);
+    if (!match) continue;
+
+    const name = cleanMarkdownText(match[1]);
+    if (!name || /^не\s+определ/i.test(name)) {
+      return null;
+    }
+
+    return name.length > 120 ? `${name.slice(0, 120)}...` : name;
+  }
+
+  return null;
+};
+
+const inferDeviceType = (text: string) => {
+  const normalized = text.toLowerCase();
+  const knownTypes = [
+    "стиральная машина",
+    "посудомоечная машина",
+    "холодильник",
+    "микроволновка",
+    "телевизор",
+    "ноутбук",
+    "компьютер",
+    "смартфон",
+    "пылесос",
+    "утюг",
+    "чайник",
+    "принтер",
+  ];
+  return knownTypes.find((item) => normalized.includes(item)) ?? "Неизвестная техника";
+};
+
+const extractRelevantLines = (text: string, keywords: string[]) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => cleanMarkdownText(line))
+    .filter(Boolean);
+  const matched = lines.filter((line) => {
+    const lower = line.toLowerCase();
+    return keywords.some((keyword) => lower.includes(keyword));
+  });
+  return matched.slice(0, 6);
+};
+
+const buildRepairReportNotes = (
+  deviceName: string,
+  issue: string,
+  assistantAnswer: string,
+  userMessages: ChatMessage[],
+  chatTitle: string
+) => {
+  const warnings = extractRelevantLines(assistantAnswer, [
+    "опас",
+    "вниман",
+    "предупреж",
+    "отключ",
+    "напряж",
+    "ток",
+    "сервис",
+    "мастер",
+  ]);
+  const tools = extractRelevantLines(assistantAnswer, [
+    "инструмент",
+    "отвертк",
+    "мультиметр",
+    "ключ",
+    "пассатиж",
+    "паяль",
+    "купить",
+    "одолжить",
+  ]);
+  const userRequests = userMessages
+    .map((message) => message.text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+
+  return [
+    `# Отчет из чата: ${chatTitle}`,
+    "",
+    "## Что сломалось",
+    issue,
+    "",
+    "## Техника",
+    deviceName,
+    "",
+    "## Предупреждения",
+    warnings.length > 0
+      ? warnings.map((line) => `- ${line}`).join("\n")
+      : "Отдельные предупреждения не выделены автоматически. Проверьте полный ответ помощника ниже.",
+    "",
+    "## Инструменты",
+    tools.length > 0
+      ? tools.map((line) => `- ${line}`).join("\n")
+      : "Отдельный список инструментов не выделен автоматически. Проверьте полный ответ помощника ниже.",
+    "",
+    "## Запросы пользователя",
+    userRequests || "Текстовые запросы отсутствовали.",
+    "",
+    "## Ответ помощника",
+    assistantAnswer,
+  ].join("\n");
+};
+
 const ChatPage = () => {
   const currentUser = useAppSelector((state) => state.auth.user);
   const userId = currentUser?.id;
@@ -110,12 +264,20 @@ const ChatPage = () => {
     isError: isChatsError,
     refetch: refetchChats,
   } = useGetAssistantChatsByUserIdQuery(userId ?? 0, { skip: !userId });
+  const { data: skills = [] } = useGetSkillsQuery();
+  const { data: tools = [] } = useGetToolsQuery();
+  const { data: userTools = [] } = useGetUserToolsByUserIdQuery(userId ?? 0, { skip: !userId });
+  const { data: devices = [] } = useGetDevicesByUserIdQuery(userId ?? 0, { skip: !userId });
+  const { data: repairHistory = [] } = useGetRepairHistoryByUserIdQuery(userId ?? 0, {
+    skip: !userId,
+  });
 
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [pendingAttachments, setPendingAttachments] = useState<PendingRepairChatAttachment[]>([]);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
+  const [reportSaveStatuses, setReportSaveStatuses] = useState<Record<string, ReportSaveEntry>>({});
   const messagesRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -127,6 +289,10 @@ const ChatPage = () => {
   const [addAssistantChatMessage] = useAddAssistantChatMessageMutation();
   const [updateAssistantChat] = useUpdateAssistantChatMutation();
   const [deleteAssistantChat] = useDeleteAssistantChatMutation();
+  const [createDevice] = useCreateDeviceMutation();
+  const [createRepairHistory] = useCreateRepairHistoryMutation();
+  const [updateRepairHistory] = useUpdateRepairHistoryMutation();
+  const [deleteRepairHistory] = useDeleteRepairHistoryMutation();
 
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -135,7 +301,25 @@ const ChatPage = () => {
     () => [...chats].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
     [chats]
   );
-
+  const activeSkill = useMemo(
+    () => skills.find((skill) => skill.id === currentUser?.skill_level_id),
+    [currentUser?.skill_level_id, skills]
+  );
+  const assistantContext = useMemo(
+    () => ({
+      skillLevelName: activeSkill?.name,
+      skillLevelDescription: activeSkill?.description,
+      tools: userTools.map((item) => {
+        const tool = tools.find((candidate) => candidate.id === item.tool_id);
+        return {
+          name: tool?.name ?? `Инструмент #${item.tool_id}`,
+          quantity: item.quantity,
+          description: tool?.description,
+        };
+      }),
+    }),
+    [activeSkill?.description, activeSkill?.name, tools, userTools]
+  );
   // При activeChatId === null запрос пропускается, но RTK Query может кратко держать
   // кэш предыдущего чата в `data` — заголовок должен явно зависеть от выбранного id.
   const activeTitle =
@@ -160,6 +344,34 @@ const ChatPage = () => {
     }
   }, [activeChatId, activeChat]);
 
+  useEffect(() => {
+    if (!activeChatId) {
+      setReportSaveStatuses({});
+      return;
+    }
+
+    const savedLinks = getSavedChatReportLinks(repairHistory, activeChatId);
+
+    setReportSaveStatuses((prev) => {
+      const next: Record<string, ReportSaveEntry> = {};
+
+      for (const message of messages) {
+        if (message.author !== "companion" || message.omitFromAiHistory) continue;
+
+        const link = savedLinks.get(message.id);
+        if (link) {
+          next[message.id] = { status: "saved", repairHistoryId: link.repairHistoryId };
+        } else if (prev[message.id]?.status === "saving") {
+          next[message.id] = prev[message.id];
+        } else {
+          next[message.id] = { status: "idle" };
+        }
+      }
+
+      return next;
+    });
+  }, [activeChatId, messages, repairHistory]);
+
   const handleNewChatClick = () => {
     if (isAwaitingResponse) return;
     setRenamingId(null);
@@ -168,6 +380,7 @@ const ChatPage = () => {
     setMessages([]);
     setInputValue("");
     setPendingAttachments([]);
+    setReportSaveStatuses({});
   };
 
   const handleSendMessage = async () => {
@@ -229,7 +442,7 @@ const ChatPage = () => {
       const response = await askAIagent([
         ...chatMessagesToRepairHistory(historyPrior),
         userTurnForApi,
-      ]);
+      ], assistantContext);
       const companionMessage = createCompanionBubble(response);
       setMessages((prevMessages) => [...prevMessages, companionMessage]);
 
@@ -277,6 +490,7 @@ const ChatPage = () => {
     setMessages([]);
     setInputValue("");
     setPendingAttachments([]);
+    setReportSaveStatuses({});
   };
 
   const startRename = (chat: IAssistantChat) => {
@@ -321,6 +535,176 @@ const ChatPage = () => {
     if (renamingId === chatId) {
       cancelRename();
     }
+  };
+
+  const ensureReportDevice = async (issueText: string, assistantAnswer: string) => {
+    const detectedDeviceName = extractDeviceNameFromAssistantAnswer(assistantAnswer);
+    const deviceName = detectedDeviceName ?? inferDeviceType(issueText);
+    const normalizedDeviceName = deviceName.toLowerCase();
+    const existingDevice = devices.find((device) => {
+      const candidates = [device.device_type, device.model, formatDeviceName(device)];
+      return candidates.some((candidate) => candidate?.toLowerCase() === normalizedDeviceName);
+    });
+
+    if (existingDevice) {
+      return {
+        device: existingDevice,
+        deviceName: detectedDeviceName ?? formatDeviceName(existingDevice),
+      };
+    }
+
+    const createdDevice = await createDevice({
+      user_id: userId!,
+      device_type: deviceName,
+      brand: null,
+      model: AI_DETECTED_DEVICE_MODEL,
+      serial_number: null,
+      notes: "Автоматически создано по строке «Название техники» из ответа ИИ.",
+    }).unwrap();
+    return { device: createdDevice, deviceName };
+  };
+
+  const handleUnsaveReport = async (messageId: string, repairHistoryId: number) => {
+    if (!userId || !activeChatId) return;
+
+    setReportSaveStatuses((prev) => ({
+      ...prev,
+      [messageId]: { status: "saving", repairHistoryId },
+    }));
+
+    try {
+      const record = repairHistory.find((item) => item.id === repairHistoryId);
+      if (!record) {
+        setReportSaveStatuses((prev) => ({ ...prev, [messageId]: { status: "idle" } }));
+        return;
+      }
+
+      const nextNotes = removeChatReportSection(
+        record.result_notes,
+        activeChatId,
+        messageId
+      );
+
+      if (!nextNotes) {
+        await deleteRepairHistory({ id: repairHistoryId, userId }).unwrap();
+      } else {
+        await updateRepairHistory({
+          id: repairHistoryId,
+          userId,
+          patch: { result_notes: nextNotes },
+        }).unwrap();
+      }
+
+      setReportSaveStatuses((prev) => ({ ...prev, [messageId]: { status: "idle" } }));
+    } catch {
+      setReportSaveStatuses((prev) => ({
+        ...prev,
+        [messageId]: { status: "error", repairHistoryId },
+      }));
+    }
+  };
+
+  const handleSaveReport = async (messageId: string) => {
+    if (!userId || !activeChatId) return;
+
+    const assistantIndex = messages.findIndex((message) => message.id === messageId);
+    const assistantMessage = messages[assistantIndex];
+    if (!assistantMessage || assistantMessage.author !== "companion") {
+      return;
+    }
+
+    setReportSaveStatuses((prev) => ({
+      ...prev,
+      [messageId]: { status: "saving" },
+    }));
+
+    try {
+      const messagesForReport = messages.slice(0, assistantIndex + 1);
+      const userMessages = messagesForReport.filter((message) => message.author === "me");
+      const lastUserMessage = [...userMessages].reverse()[0];
+      const issue = firstMeaningfulLine(
+        lastUserMessage?.text ?? activeTitle,
+        activeTitle || "Консультация по ремонту"
+      );
+      const { device: reportDevice, deviceName: reportDeviceName } = await ensureReportDevice(
+        issue,
+        assistantMessage.text
+      );
+      const reportNotes = buildRepairReportNotes(
+        reportDeviceName,
+        issue,
+        assistantMessage.text,
+        userMessages,
+        activeTitle
+      );
+
+      const recommendation = firstMeaningfulLine(
+        assistantMessage.text,
+        "Рекомендации сохранены в полном отчете."
+      );
+      const devicesById = new Map(devices.map((device) => [device.id, device]));
+      const existingReport = repairHistory
+        .filter((record) =>
+          repairRecordsShareDeviceName(record, reportDeviceName, devicesById)
+        )
+        .sort(
+          (a, b) => Date.parse(String(b.started_at)) - Date.parse(String(a.started_at))
+        )[0];
+
+      let repairHistoryId: number;
+
+      if (existingReport) {
+        await updateRepairHistory({
+          id: existingReport.id,
+          userId,
+          patch: {
+            issue_description: issue,
+            work_performed: assistantMessage.text,
+            recommendation_used: recommendation,
+            result_notes: appendRepairReportSection(
+              existingReport.result_notes,
+              reportNotes,
+              new Date(),
+              { chatId: activeChatId, messageId }
+            ),
+          },
+        }).unwrap();
+        repairHistoryId = existingReport.id;
+      } else {
+        const created = await createRepairHistory({
+          user_id: userId,
+          device_id: reportDevice.id,
+          issue_description: issue,
+          started_at: new Date(),
+          finished_at: null,
+          status: "in_progress",
+          work_performed: assistantMessage.text,
+          result_notes: withChatReportRef(activeChatId, messageId, reportNotes),
+          recommendation_used: recommendation,
+          complexity_skill_level_id: currentUser?.skill_level_id ?? null,
+        }).unwrap();
+        repairHistoryId = created.id;
+      }
+
+      setReportSaveStatuses((prev) => ({
+        ...prev,
+        [messageId]: { status: "saved", repairHistoryId },
+      }));
+    } catch {
+      setReportSaveStatuses((prev) => ({ ...prev, [messageId]: { status: "error" } }));
+    }
+  };
+
+  const handleToggleReport = (messageId: string) => {
+    const entry = reportSaveStatuses[messageId];
+    if (entry?.status === "saving") return;
+
+    if (entry?.status === "saved" && entry.repairHistoryId) {
+      void handleUnsaveReport(messageId, entry.repairHistoryId);
+      return;
+    }
+
+    void handleSaveReport(messageId);
   };
 
   return (
@@ -474,6 +858,8 @@ const ChatPage = () => {
             ref={messagesRef}
             messages={messages}
             isAwaitingResponse={isAwaitingResponse}
+            onToggleReport={handleToggleReport}
+            getReportSaveEntry={(messageId) => reportSaveStatuses[messageId] ?? { status: "idle" }}
           />
 
           <div className={`chat-page__input-wrap ${!canSend ? "is-disabled" : ""}`}>
