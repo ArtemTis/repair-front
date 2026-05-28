@@ -1,0 +1,28 @@
+:root {
+  --color-bg: #fffaf4;
+  --color-bg-muted: #f6efe7;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fff7ef;
+  --color-border: #eadfd5;
+  --color-border-strong: #dfcfc0;
+  --color-text: #2b241f;
+  --color-text-muted: #786c62;
+  --color-text-soft: #9b8c80;
+  --color-accent: #f97316;
+  --color-accent-dark: #ea580c;
+  --color-accent-soft: #ffedd5;
+  --color-accent-ghost: rgba(249, 115, 22, 0.1);
+  --shadow-xs: 0 1px 2px rgba(62, 43, 31, 0.06);
+  --shadow-sm: 0 8px 24px rgba(62, 43, 31, 0.08);
+  --shadow-md: 0 18px 45px rgba(62, 43, 31, 0.12);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --container-width: 1200px;
+  /* Единые отступы области контента (под хедером) для всех страниц */
+  --layout-main-padding-block: 22px;
+  --layout-main-padding-inline: 20px;
+  --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+}
