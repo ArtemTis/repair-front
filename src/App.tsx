@@ -1,4 +1,5 @@
 // src/App.tsx
+import { Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppRoutes, RoutePath, routerConfig } from "./shared/config/routerConfig";
 import { useAppSelector } from "./shared/store/hooks";
@@ -17,26 +18,28 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 export const App = () => {
   return (
     <Layout>
-      <Routes>
-        {Object.entries(routerConfig).map(([routeName, { path, element }]) => {
-          const isAuthRoute = routeName === AppRoutes.AUTH;
+      <Suspense fallback={<div>Загрузка...</div>}>
+        <Routes>
+          {Object.entries(routerConfig).map(([routeName, { path, element }]) => {
+            const isAuthRoute = routeName === AppRoutes.AUTH;
 
-          return (
-            <Route
-              key={path}
-              path={path}
-              element={
-                isAuthRoute ? (
-                  element
-                ) : (
-                  <ProtectedRoute>{element}</ProtectedRoute>
-                )
-              }
-            />
-          );
-        })}
-        <Route path="*" element={<Navigate to={RoutePath.chat} replace />} />
-      </Routes>
+            return (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  isAuthRoute ? (
+                    element
+                  ) : (
+                    <ProtectedRoute>{element}</ProtectedRoute>
+                  )
+                }
+              />
+            );
+          })}
+          <Route path="*" element={<Navigate to={RoutePath.chat} replace />} />
+        </Routes>
+      </Suspense>
     </Layout>
   );
 };

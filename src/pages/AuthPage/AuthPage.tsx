@@ -1,14 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
-  useGetSkillsQuery,
   useLoginMutation,
   useRegisterMutation,
-} from "../../shared/api/api";
+} from "../../shared/api/authApi";
+import { useGetSkillsQuery } from "../../shared/api/skillsApi";
 import { RoutePath } from "../../shared/config/routerConfig";
 import { useAppDispatch, useAppSelector } from "../../shared/store/hooks";
 import { setCurrentUser } from "../../shared/store/authSlice";
 import { Button, Card, Select, TextInput } from "../../shared/ui";
+import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 import "./AuthPage.css";
 
 type AuthMode = "login" | "register";
@@ -17,7 +18,7 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
-  const { data: skills = [] } = useGetSkillsQuery();
+  const { data: skills = EMPTY_ARRAY } = useGetSkillsQuery();
   const [login, { isLoading: isLoggingIn }] = useLoginMutation();
   const [register, { isLoading: isRegistering }] = useRegisterMutation();
 

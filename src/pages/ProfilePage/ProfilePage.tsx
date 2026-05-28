@@ -1,23 +1,22 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
+import { useGetAssistantChatsByUserIdQuery } from "../../shared/api/assistantChatsApi";
+import { useGetRepairGuidesByUserIdQuery } from "../../shared/api/repairGuidesApi";
+import { useGetRepairHistoryByUserIdQuery } from "../../shared/api/repairHistoryApi";
+import { useGetSkillsQuery } from "../../shared/api/skillsApi";
+import { useCreateToolMutation, useGetToolsQuery } from "../../shared/api/toolsApi";
 import {
   useAddUserToolMutation,
-  useCreateToolMutation,
   useDeleteUserToolMutation,
-  useGetAssistantChatsByUserIdQuery,
-  useGetRepairGuidesByUserIdQuery,
-  useGetRepairHistoryByUserIdQuery,
-  useGetSkillsQuery,
-  useGetToolsQuery,
-  useGetUserByIdQuery,
   useGetUserToolsByUserIdQuery,
-  useUpdateUserMutation,
   useUpdateUserToolQuantityMutation,
-} from "../../shared/api/api";
+} from "../../shared/api/userToolsApi";
+import { useGetUserByIdQuery, useUpdateUserMutation } from "../../shared/api/usersApi";
 import { setCurrentUser } from "../../shared/store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../shared/store/hooks";
 import { IRepairHistory } from "../../shared/types";
 import { Button, Card, Select, TextInput } from "../../shared/ui";
+import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 import "./ProfilePage.css";
 
 const statusLabels: Record<IRepairHistory["status"], string> = {
@@ -34,12 +33,12 @@ const ProfilePage = () => {
   const queryUserId = userId ?? skipToken;
 
   const { data: user } = useGetUserByIdQuery(queryUserId);
-  const { data: skills = [] } = useGetSkillsQuery();
-  const { data: tools = [] } = useGetToolsQuery();
-  const { data: userTools = [] } = useGetUserToolsByUserIdQuery(queryUserId);
-  const { data: repairGuides = [] } = useGetRepairGuidesByUserIdQuery(queryUserId);
-  const { data: repairHistory = [] } = useGetRepairHistoryByUserIdQuery(queryUserId);
-  const { data: assistantChats = [] } = useGetAssistantChatsByUserIdQuery(queryUserId);
+  const { data: skills = EMPTY_ARRAY } = useGetSkillsQuery();
+  const { data: tools = EMPTY_ARRAY } = useGetToolsQuery();
+  const { data: userTools = EMPTY_ARRAY } = useGetUserToolsByUserIdQuery(queryUserId);
+  const { data: repairGuides = EMPTY_ARRAY } = useGetRepairGuidesByUserIdQuery(queryUserId);
+  const { data: repairHistory = EMPTY_ARRAY } = useGetRepairHistoryByUserIdQuery(queryUserId);
+  const { data: assistantChats = EMPTY_ARRAY } = useGetAssistantChatsByUserIdQuery(queryUserId);
 
   const [updateUser, { isLoading: isSkillUpdating }] = useUpdateUserMutation();
   const [addUserTool, { isLoading: isAddingTool }] = useAddUserToolMutation();
@@ -216,9 +215,8 @@ const ProfilePage = () => {
             {skills.map((skill) => (
               <button
                 key={skill.id}
-                className={`skill-chip ${
-                  skill.id === displayUser.skill_level_id ? "is-active" : ""
-                }`}
+                className={`skill-chip ${skill.id === displayUser.skill_level_id ? "is-active" : ""
+                  }`}
                 type="button"
                 disabled={isSkillUpdating}
                 onClick={() => handleSkillChange(skill.id)}

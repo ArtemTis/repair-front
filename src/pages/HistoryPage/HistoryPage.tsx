@@ -9,10 +9,10 @@ import { useAppSelector } from "../../shared/store/hooks";
 import {
   useGetRepairHistoryByUserIdQuery,
   useGetRepairHistoryByIdQuery,
-  useGetDevicesByUserIdQuery,
   useUpdateRepairHistoryMutation,
   useDeleteRepairHistoryMutation,
-} from "../../shared/api/api";
+} from "../../shared/api/repairHistoryApi";
+import { useGetDevicesByUserIdQuery } from "../../shared/api/deviceApi";
 import type { IRepairHistory } from "../../shared/types";
 import { formatDeviceName } from "../../shared/repairHistory/deviceDisplay";
 import { removeChatReportSection } from "../../shared/repairHistory/chatReportLink";
@@ -26,6 +26,7 @@ import {
   type RepairHistoryDeviceGroup,
   type RepairReportAppeal,
 } from "../../shared/repairHistory/repairHistoryReports";
+import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 import "./HistoryPage.css";
 
 const STATUS_LABELS: Record<IRepairHistory["status"], string> = {
@@ -79,11 +80,11 @@ const HistoryListView = () => {
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
 
-  const { data: records = [], isLoading, isError, error } = useGetRepairHistoryByUserIdQuery(
+  const { data: records = EMPTY_ARRAY, isLoading, isError, error } = useGetRepairHistoryByUserIdQuery(
     user?.id ?? 0,
     { skip: !user?.id }
   );
-  const { data: devices = [] } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
+  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
   const [deleteRepairHistory, { isLoading: isDeleting }] = useDeleteRepairHistoryMutation();
 
   const deviceGroups = useMemo(() => {
@@ -198,11 +199,11 @@ const HistoryReportDetailView = () => {
   const nameKey = nameKeyParam ? decodeURIComponent(nameKeyParam) : "";
   const validNameKey = nameKey.trim().length > 0;
 
-  const { data: records = [], isLoading: isRecordsLoading } = useGetRepairHistoryByUserIdQuery(
+  const { data: records = EMPTY_ARRAY, isLoading: isRecordsLoading } = useGetRepairHistoryByUserIdQuery(
     user?.id ?? 0,
     { skip: !user?.id }
   );
-  const { data: devices = [] } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
+  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
   const [updateRepairHistory, { isLoading: isStatusUpdating }] =
     useUpdateRepairHistoryMutation();
   const [deleteRepairHistory, { isLoading: isDeleting }] = useDeleteRepairHistoryMutation();
@@ -426,7 +427,7 @@ const LegacyRepairRedirect = () => {
   const { data: record, isLoading, isError } = useGetRepairHistoryByIdQuery(id, {
     skip: !validId,
   });
-  const { data: devices = [] } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
+  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
     skip: !user?.id || !record?.device_id,
   });
 
@@ -489,7 +490,7 @@ const LegacyDeviceIdRedirect = () => {
   const { deviceId: deviceIdParam } = useParams<{ deviceId: string }>();
   const deviceId = deviceIdParam ? Number.parseInt(deviceIdParam, 10) : NaN;
 
-  const { data: devices = [], isLoading } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
+  const { data: devices = EMPTY_ARRAY, isLoading } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
     skip: !user?.id,
   });
 

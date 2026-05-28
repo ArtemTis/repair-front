@@ -11,20 +11,24 @@ import { useAppSelector } from "../../shared/store/hooks";
 import {
   useAddAssistantChatMessageMutation,
   useCreateAssistantChatMutation,
-  useCreateDeviceMutation,
-  useCreateRepairHistoryMutation,
-  useDeleteRepairHistoryMutation,
   useDeleteAssistantChatMutation,
   useGetAssistantChatByIdQuery,
   useGetAssistantChatsByUserIdQuery,
+  useUpdateAssistantChatMutation,
+} from "../../shared/api/assistantChatsApi";
+import {
+  useCreateDeviceMutation,
   useGetDevicesByUserIdQuery,
+} from "../../shared/api/deviceApi";
+import {
+  useCreateRepairHistoryMutation,
+  useDeleteRepairHistoryMutation,
   useGetRepairHistoryByUserIdQuery,
   useUpdateRepairHistoryMutation,
-  useGetSkillsQuery,
-  useGetToolsQuery,
-  useGetUserToolsByUserIdQuery,
-  useUpdateAssistantChatMutation,
-} from "../../shared/api/api";
+} from "../../shared/api/repairHistoryApi";
+import { useGetSkillsQuery } from "../../shared/api/skillsApi";
+import { useGetToolsQuery } from "../../shared/api/toolsApi";
+import { useGetUserToolsByUserIdQuery } from "../../shared/api/userToolsApi";
 import type { IAssistantChat, IAssistantChatMessage } from "../../shared/types";
 import {
   AI_DETECTED_DEVICE_MODEL,
@@ -39,6 +43,7 @@ import {
   appendRepairReportSection,
   repairRecordsShareDeviceName,
 } from "../../shared/repairHistory/repairHistoryReports";
+import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 
 const createTime = () =>
   new Date().toLocaleTimeString("ru-RU", {
@@ -127,6 +132,28 @@ type ReportSaveStatus = "idle" | "saving" | "saved" | "error";
 type ReportSaveEntry = {
   status: ReportSaveStatus;
   repairHistoryId?: number;
+};
+
+const areReportSaveStatusesEqual = (
+  current: Record<string, ReportSaveEntry>,
+  next: Record<string, ReportSaveEntry>
+) => {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+
+  return nextKeys.every((key) => {
+    const currentEntry = current[key];
+    const nextEntry = next[key];
+
+    return (
+      currentEntry?.status === nextEntry.status &&
+      currentEntry?.repairHistoryId === nextEntry.repairHistoryId
+    );
+  });
 };
 
 const cleanMarkdownText = (value: string) =>
@@ -259,16 +286,16 @@ const ChatPage = () => {
   const userId = currentUser?.id;
 
   const {
-    data: chats = [],
+    data: chats = EMPTY_ARRAY,
     isLoading: isChatsLoading,
     isError: isChatsError,
     refetch: refetchChats,
   } = useGetAssistantChatsByUserIdQuery(userId ?? 0, { skip: !userId });
-  const { data: skills = [] } = useGetSkillsQuery();
-  const { data: tools = [] } = useGetToolsQuery();
-  const { data: userTools = [] } = useGetUserToolsByUserIdQuery(userId ?? 0, { skip: !userId });
-  const { data: devices = [] } = useGetDevicesByUserIdQuery(userId ?? 0, { skip: !userId });
-  const { data: repairHistory = [] } = useGetRepairHistoryByUserIdQuery(userId ?? 0, {
+  const { data: skills = EMPTY_ARRAY } = useGetSkillsQuery();
+  const { data: tools = EMPTY_ARRAY } = useGetToolsQuery();
+  const { data: userTools = EMPTY_ARRAY } = useGetUserToolsByUserIdQuery(userId ?? 0, { skip: !userId });
+  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(userId ?? 0, { skip: !userId });
+  const { data: repairHistory = EMPTY_ARRAY } = useGetRepairHistoryByUserIdQuery(userId ?? 0, {
     skip: !userId,
   });
 
@@ -335,7 +362,7 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (!activeChatId) {
-      setMessages([]);
+      setMessages((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -346,7 +373,7 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (!activeChatId) {
-      setReportSaveStatuses({});
+      setReportSaveStatuses((prev) => (Object.keys(prev).length === 0 ? prev : {}));
       return;
     }
 
@@ -368,7 +395,7 @@ const ChatPage = () => {
         }
       }
 
-      return next;
+      return areReportSaveStatusesEqual(prev, next) ? prev : next;
     });
   }, [activeChatId, messages, repairHistory]);
 

@@ -1,12 +1,13 @@
+import { lazy } from "react";
 import { RouteProps } from "react-router-dom";
-import AuthPage from "../../pages/AuthPage/AuthPage";
-import ChatPage from "../../pages/ChatPage/ChatPage";
-import HistoryPage from "../../pages/HistoryPage/HistoryPage";
-import ProfilePage from "../../pages/ProfilePage/ProfilePage";
-import DevicesPage from "../../pages/ProfilePage/DevicesPage";
-import SkillsPage from "../../pages/ProfilePage/SkillsPage";
-import ArticlesPage from "../../pages/ArticlesPage/ArticlesPage";
-import ServicesPage from "../../pages/ServicesPage/ServicesPage";
+const AuthPage = lazy(() => import("../../pages/AuthPage/AuthPage"));
+const ChatPage = lazy(() => import("../../pages/ChatPage/ChatPage"));
+const HistoryPage = lazy(() => import("../../pages/HistoryPage/HistoryPage"));
+const ProfilePage = lazy(() => import("../../pages/ProfilePage/ProfilePage"));
+const DevicesPage = lazy(() => import("../../pages/ProfilePage/DevicesPage"));
+const SkillsPage = lazy(() => import("../../pages/ProfilePage/SkillsPage"));
+const ArticlesPage = lazy(() => import("../../pages/ArticlesPage/ArticlesPage"));
+const ServicesPage = lazy(() => import("../../pages/ServicesPage/ServicesPage"));
 
 export enum AppRoutes {
   AUTH = "auth",

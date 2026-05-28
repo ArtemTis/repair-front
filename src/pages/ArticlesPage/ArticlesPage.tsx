@@ -2,9 +2,10 @@ import { Route, Routes, useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button, Card } from "../../shared/ui";
-import { useGetArticleByIdQuery, useGetArticlesQuery } from "../../shared/api/api";
+import { useGetArticleByIdQuery, useGetArticlesQuery } from "../../shared/api/articlesApi";
 import { RoutePath } from "../../shared/config/routerConfig";
 import type { IArticle } from "../../shared/types";
+import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 import "./ArticlesPage.css";
 
 const formatDate = (value: string | null) => {
@@ -24,7 +25,7 @@ const getArticleDate = (article: IArticle) =>
 
 const ArticlesListView = () => {
   const navigate = useNavigate();
-  const { data: articles = [], isLoading, isError, error } = useGetArticlesQuery();
+  const { data: articles = EMPTY_ARRAY, isLoading, isError, error } = useGetArticlesQuery();
 
   return (
     <section className="articles-page">
