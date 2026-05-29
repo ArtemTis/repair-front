@@ -1,5 +1,5 @@
 name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+run-name: build and test the project
 on: 
   push:
     branches: [ main ]
@@ -23,4 +23,6 @@ jobs:
         run: npm run typecheck
       - name: build
         run: npm run build
+      - name: test
+        run: npm run test
       - run: echo "This job's status is ${{ job.status }}."
