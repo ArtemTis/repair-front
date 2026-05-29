@@ -18,9 +18,15 @@
     "api:build": "npm run build -w api",
     "dev": "concurrently \"npm run api:start\" \"npm run host:start\" \"npm run admin:start\"",
     "build": "npm run api:build && npm run host:build && npm run admin:build",
-    "typecheck": "npm run host:typecheck && npm run admin:typecheck"
+    "typecheck": "npm run host:typecheck && npm run admin:typecheck",
+    "test:host": "npm run test -w apps/host",
+    "test": "npm run test:host"
   },
   "devDependencies": {
-    "concurrently": "^10.0.0"
+    "@types/jest": "^30.0.0",
+    "concurrently": "^10.0.0",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "ts-jest": "^29.4.11"
   }
 }
