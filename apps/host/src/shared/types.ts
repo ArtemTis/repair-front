@@ -82,16 +82,16 @@ export interface IRepairHistory {
     user_id: number;
     device_id: number;
     repair_guide_id: number | null;
-    started_at: Date;
-    finished_at: Date | null;
+    started_at: string;
+    finished_at: string | null;
     status: 'in_progress' | 'success' | 'failed' | 'cancelled';
     issue_description: string;
     work_performed: string | null;
     result_notes: string | null;
     recommendation_used: string | null;
     complexity_skill_level_id: number | null;
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface IUserTool {

@@ -242,7 +242,7 @@ const HistoryReportDetailView = () => {
 
     const patch: Partial<IRepairHistory> = { status };
     if (status === "success" || status === "failed" || status === "cancelled") {
-      patch.finished_at = new Date();
+      patch.finished_at = new Date().toISOString();
     } else if (status === "in_progress") {
       patch.finished_at = null;
     }

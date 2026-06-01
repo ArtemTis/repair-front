@@ -66,7 +66,10 @@ const ensureTables = async () => {
         CREATE INDEX IF NOT EXISTS idx_assistant_chat_messages_chat_created
         ON assistant_chat_messages (chat_id, created_at ASC, id ASC)
       `);
-    })();
+    })().catch((error) => {
+      tablesReady = null;
+      throw error;
+    });
   }
 
   return tablesReady;

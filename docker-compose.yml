@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: node_postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres18_data:/var/lib/postgresql
+      - ./api/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+
+  api:
+    build:
+      context: .
+    command: npm run api:start
+    env_file:
+      - ./api/.env
+    environment:
+      DB_HOST: db
+      DB_NAME: node_postgres
+      DB_PASSWORD: root
+    ports:
+      - "9119:9119"
+    depends_on:
+      - db
+
+  host:
+    build:
+      context: .
+    command: npm run host:start
+    env_file:
+      - ./apps/host/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: .
+    command: npm run admin:start
+    env_file:
+      - ./apps/admin/.env
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+
+volumes:
+  postgres18_data:
