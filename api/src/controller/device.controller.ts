@@ -3,19 +3,24 @@ import { Request, Response } from 'express';
 import { QueryResult } from 'pg';
 import { IDevice, IdParam } from '../types';
 
-type CreateDeviceBody = Pick<IDevice, 'user_id' | 'device_type' | 'model'> &
+type CreateDeviceBody = Pick<IDevice, 'device_type' | 'model'> &
   Partial<Pick<IDevice, 'brand' | 'serial_number' | 'notes'>>;
 
-type UpdateDeviceBody = Partial<Pick<IDevice, 'user_id' | 'device_type' | 'brand' | 'model' | 'serial_number' | 'notes'>>;
+type UpdateDeviceBody = Partial<Pick<IDevice, 'device_type' | 'brand' | 'model' | 'serial_number' | 'notes'>>;
 
 class DeviceController {
   async createDevice(req: Request<{}, {}, CreateDeviceBody>, res: Response): Promise<Response> {
     try {
-      const { user_id, device_type, model, brand, serial_number, notes } = req.body;
+      const userId = req.user?.id;
+      const { device_type, model, brand, serial_number, notes } = req.body;
 
-      if (!user_id || !device_type || !model) {
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (!device_type || !model) {
         return res.status(400).json({
-          message: 'Поля user_id, device_type и model обязательны'
+          message: 'Поля device_type и model обязательны'
         });
       }
 
@@ -28,7 +33,7 @@ class DeviceController {
         )
         RETURNING *
         `,
-        [user_id, device_type, brand ?? null, model, serial_number ?? null, notes ?? null]
+        [userId, device_type, brand ?? null, model, serial_number ?? null, notes ?? null]
       );
 
       return res.status(201).json(newDevice.rows[0]);
@@ -42,8 +47,13 @@ class DeviceController {
 
   async getDevicesByUserId(req: Request<Pick<IDevice, 'user_id'>>, res: Response): Promise<Response> {
     try {
-      const { user_id } = req.params;
-      const devices: QueryResult<IDevice[]> = await db.query('SELECT * FROM devices WHERE user_id = $1', [user_id]);
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      const devices: QueryResult<IDevice[]> = await db.query('SELECT * FROM devices WHERE user_id = $1', [userId]);
 
       return res.json(devices.rows);
     } catch (error: any) {
@@ -56,8 +66,14 @@ class DeviceController {
 
   async getDeviceById(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
-      const device: QueryResult<IDevice> = await db.query('SELECT * FROM devices WHERE id = $1', [id]);
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      const device: QueryResult<IDevice> = await db.query('SELECT * FROM devices WHERE id = $1 AND user_id = $2', [id, userId]);
 
       if (!device.rows[0]) {
         return res.status(404).json({ message: 'Устройство не найдено' });
@@ -74,24 +90,28 @@ class DeviceController {
 
   async updateDevice(req: Request<IdParam, {}, UpdateDeviceBody>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
-      const { user_id, device_type, brand, model, serial_number, notes } = req.body;
+      const { device_type, brand, model, serial_number, notes } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
 
       const device: QueryResult<IDevice> = await db.query(
         `
         UPDATE devices
         SET
-          user_id = COALESCE($1, user_id),
-          device_type = COALESCE($2, device_type),
-          brand = COALESCE($3, brand),
-          model = COALESCE($4, model),
-          serial_number = COALESCE($5, serial_number),
-          notes = COALESCE($6, notes),
+          device_type = COALESCE($1, device_type),
+          brand = COALESCE($2, brand),
+          model = COALESCE($3, model),
+          serial_number = COALESCE($4, serial_number),
+          notes = COALESCE($5, notes),
           updated_at = NOW()
-        WHERE id = $7
+        WHERE id = $6 AND user_id = $7
         RETURNING *
         `,
-        [user_id ?? null, device_type ?? null, brand ?? null, model ?? null, serial_number ?? null, notes ?? null, id]
+        [device_type ?? null, brand ?? null, model ?? null, serial_number ?? null, notes ?? null, id, userId]
       );
 
       if (!device.rows[0]) {
@@ -109,10 +129,16 @@ class DeviceController {
 
   async deleteDevice(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const deletedDevice: QueryResult<{ id: number }> = await db.query(
-        'DELETE FROM devices WHERE id = $1 RETURNING id',
-        [id]
+        'DELETE FROM devices WHERE id = $1 AND user_id = $2 RETURNING id',
+        [id, userId]
       );
 
       if (!deletedDevice.rows[0]) {

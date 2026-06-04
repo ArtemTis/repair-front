@@ -12,7 +12,7 @@ import {
   useUpdateUserToolQuantityMutation,
 } from "../../shared/api/userToolsApi";
 import { useGetUserByIdQuery, useUpdateUserMutation } from "../../shared/api/usersApi";
-import { setCurrentUser } from "../../shared/store/authSlice";
+import { setCredentials, setCurrentUser } from "../../shared/store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../shared/store/hooks";
 import { IRepairHistory } from "../../shared/types";
 import { Button, Card, Select, TextInput } from "../../shared/ui";

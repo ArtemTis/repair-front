@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import repairGuideToolController from '../controller/repair_guide_tool.controller';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+
+router.use(requireAuth);
 
 // Маршруты для repair_guide_tools
 router.post('/repair-guide-tool', repairGuideToolController.addToolToGuide);

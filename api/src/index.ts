@@ -1,4 +1,5 @@
-import express, { ErrorRequestHandler, Request, Response } from 'express';
+import express, { ErrorRequestHandler, Request, RequestHandler, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import userRouter from './routes/user.routers';
 import skillRouter from './routes/skill.routers';
 import toolRouter from './routes/tool.routes';
@@ -30,6 +31,7 @@ app.use((req: Request, res: Response, next) => {
     res.header('Access-Control-Allow-Origin', responseOrigin);
     res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
         return res.sendStatus(204);
@@ -38,6 +40,7 @@ app.use((req: Request, res: Response, next) => {
     return next();
 });
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(cookieParser() as unknown as RequestHandler);
 
 app.get('/', (req: Request, res: Response) => {
     res.status(200).json({ message: 'API is running' });

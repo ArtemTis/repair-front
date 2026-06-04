@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import repairGuideController from '../controller/repair_guide.controller';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.post('/repair-guide', repairGuideController.createRepairGuide);
 router.get('/repair-guides/user/:user_id', repairGuideController.getRepairGuidesByUserId);

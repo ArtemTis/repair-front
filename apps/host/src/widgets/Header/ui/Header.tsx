@@ -3,12 +3,24 @@ import { RoutePath } from "../../../shared/config/routerConfig";
 import { logout } from "../../../shared/store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../../shared/store/hooks";
 import "./Header.css";
+import { baseApi } from "../../../shared/api/baseApi";
+import { useLogoutFromServerMutation } from "../../../shared/api/authApi";
 
 export const Header = () => {
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
   const getLinkClassName = ({ isActive }: { isActive: boolean }) =>
     `header__link ${isActive ? "header__link--active" : ""}`.trim();
+  const [logoutFromServer] = useLogoutFromServerMutation();
+
+  const handleLogout = async () => {
+    try {
+      await logoutFromServer().unwrap();
+    } finally {
+      dispatch(logout());
+      dispatch(baseApi.util.resetApiState());
+    }
+  }
 
   return (
     <header className="header">
@@ -43,7 +55,7 @@ export const Header = () => {
           <button
             className="header__logout"
             type="button"
-            onClick={() => dispatch(logout())}
+            onClick={handleLogout}
           >
             Выйти
           </button>

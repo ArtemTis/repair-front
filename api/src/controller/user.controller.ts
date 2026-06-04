@@ -3,60 +3,44 @@ import { Request, Response } from 'express';
 import { QueryResult } from 'pg';
 import { IdParam, IUser } from '../types';
 
+type AuthUser = Omit<IUser, 'password'>;
+
+const toAuthUser = (user: IUser): AuthUser => {
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+};
+
 class UserController {
   async createUser(req: Request<Pick<IUser, 'full_name' | 'email' | 'skill_level_id' | 'password'>>, res: Response): Promise<Response> {
-    try {
-      const { full_name, email, skill_level_id, password } = req.body;
-
-      if (!full_name || !email || !skill_level_id) {
-        return res.status(400).json({
-          message: 'Поля full_name, email и skill_level_id обязательны'
-        });
-      }
-
-      const newUser: QueryResult<IUser> = await db.query(
-        `
-        INSERT INTO users (id, full_name, email, password, skill_level_id, created_at, updated_at)
-        VALUES (
-          nextval(pg_get_serial_sequence('users', 'id')),
-          $1, $2, $3, $4, NOW(), NOW()
-        )
-        RETURNING *
-        `,
-        [full_name, email, password, skill_level_id]
-      );
-
-      return res.status(201).json(newUser.rows[0]);
-    } catch (error: any) {
-      return res.status(500).json({
-        message: 'Ошибка при создании пользователя',
-        details: error.message
-      });
-    }
+    return res.status(410).json({
+      message: 'Создание пользователя через /user отключено. Используйте /auth/register.'
+    });
   }
 
   async getUsers(req: Request, res: Response): Promise<Response> {
-    try {
-      const users: QueryResult<IUser[]> = await db.query('SELECT * FROM users ORDER BY id');
-      return res.json(users.rows);
-    } catch (error: any) {
-      return res.status(500).json({
-        message: 'Ошибка при получении списка пользователей',
-        details: error.message
-      });
-    }
+    return res.status(403).json({ message: 'Получение списка пользователей недоступно' });
   }
 
   async getUserById(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
-      const user: QueryResult<IUser> = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (Number(id) !== userId) {
+        return res.status(403).json({ message: 'Нет доступа к этому пользователю' });
+      }
+
+      const user: QueryResult<IUser> = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
 
       if (!user.rows[0]) {
         return res.status(404).json({ message: 'Пользователь не найден' });
       }
 
-      return res.json(user.rows[0]);
+      return res.json(toAuthUser(user.rows[0]));
     } catch (error: any) {
       return res.status(500).json({
         message: 'Ошибка при получении пользователя',
@@ -67,28 +51,36 @@ class UserController {
 
   async updateUser(req: Request<Partial<IUser>>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
-      const { full_name, email, skill_level_id } = req.body;
+      const { full_name, skill_level_id } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (Number(id) !== userId) {
+        return res.status(403).json({ message: 'Нет доступа к этому пользователю' });
+      }
 
       const user: QueryResult<IUser> = await db.query(
         `
         UPDATE users
         SET
           full_name = COALESCE($1, full_name),
-          email = COALESCE($2, email),
-          skill_level_id = COALESCE($3, skill_level_id),
+          skill_level_id = COALESCE($2, skill_level_id),
           updated_at = NOW()
-        WHERE id = $4
+        WHERE id = $3
         RETURNING *
         `,
-        [full_name ?? null, email ?? null, skill_level_id ?? null, id]
+        [full_name ?? null, skill_level_id ?? null, userId]
       );
 
       if (!user.rows[0]) {
         return res.status(404).json({ message: 'Пользователь не найден' });
       }
 
-      return res.json(user.rows[0]);
+      return res.json(toAuthUser(user.rows[0]));
     } catch (error: any) {
       return res.status(500).json({
         message: 'Ошибка при обновлении пользователя',
@@ -99,10 +91,20 @@ class UserController {
 
   async deleteUser(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (Number(id) !== userId) {
+        return res.status(403).json({ message: 'Нет доступа к этому пользователю' });
+      }
+
       const deletedUser: QueryResult<{ id: number }> = await db.query(
         'DELETE FROM users WHERE id = $1 RETURNING id',
-        [id]
+        [userId]
       );
 
       if (!deletedUser.rows[0]) {

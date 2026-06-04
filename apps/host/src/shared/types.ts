@@ -25,6 +25,7 @@ export interface IRegisterBody {
 
 export interface IAuthResponse {
     user: IAuthUser;
+    accessToken: string;
 }
 
 export interface ISkills {
@@ -64,7 +65,7 @@ export interface IRepairGuide {
     min_skill_level_id: number;
     created_at: Date;
     updated_at: Date;
-  }
+}
 
 export interface IArticle {
     id: number;
@@ -76,7 +77,7 @@ export interface IArticle {
     created_at: string;
     updated_at: string;
 }
-  
+
 export interface IRepairHistory {
     id: number;
     user_id: number;
@@ -99,7 +100,7 @@ export interface IUserTool {
     tool_id: number;
     quantity: number;
 }
-  
+
 export interface IRepairGuideTool {
     repair_guide_id: number;
     tool_id: number;

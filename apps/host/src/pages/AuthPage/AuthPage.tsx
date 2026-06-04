@@ -7,7 +7,7 @@ import {
 import { useGetSkillsQuery } from "../../shared/api/skillsApi";
 import { RoutePath } from "../../shared/config/routerConfig";
 import { useAppDispatch, useAppSelector } from "../../shared/store/hooks";
-import { setCurrentUser } from "../../shared/store/authSlice";
+import { setCredentials } from "../../shared/store/authSlice";
 import { Button, Card, Select, TextInput } from "../../shared/ui";
 import { EMPTY_ARRAY } from "../../shared/lib/emptyArray";
 import "./AuthPage.css";
@@ -64,7 +64,7 @@ const AuthPage = () => {
         password,
       }).unwrap();
 
-      dispatch(setCurrentUser(response.user));
+      dispatch(setCredentials(response));
       navigate(RoutePath.profile, { replace: true });
     } catch {
       setError("Неверный email или пароль.");
@@ -85,7 +85,7 @@ const AuthPage = () => {
         skill_level_id: skillId,
       }).unwrap();
 
-      dispatch(setCurrentUser(response.user));
+      dispatch(setCredentials(response));
       navigate(RoutePath.profile, { replace: true });
     } catch {
       setError("Не удалось создать пользователя. Проверьте данные и API.");

@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import userToolController from '../controller/user_tool.controller';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+
+router.use(requireAuth);
 
 // Основные CRUD-подобные маршруты для связи
 router.post('/user-tool', userToolController.addUserTool);

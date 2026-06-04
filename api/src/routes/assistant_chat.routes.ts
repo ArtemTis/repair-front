@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import assistantChatController from '../controller/assistant_chat.controller';
+import { requireAuth } from '../middleware/requireAuth';
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.post('/assistant-chats', assistantChatController.createChat);
 router.get('/assistant-chats/user/:user_id', assistantChatController.getChatsByUserId);
