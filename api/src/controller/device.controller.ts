@@ -45,7 +45,7 @@ class DeviceController {
     }
   }
 
-  async getDevicesByUserId(req: Request<Pick<IDevice, 'user_id'>>, res: Response): Promise<Response> {
+  async getMyDevices(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.user?.id;
 

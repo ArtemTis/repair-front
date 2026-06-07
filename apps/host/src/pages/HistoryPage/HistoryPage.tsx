@@ -7,12 +7,12 @@ import type { SelectOption } from "../../shared/ui";
 import { RoutePath } from "../../shared/config/routerConfig";
 import { useAppSelector } from "../../shared/store/hooks";
 import {
-  useGetRepairHistoryByUserIdQuery,
+  useGetMyRepairHistoryQuery,
   useGetRepairHistoryByIdQuery,
   useUpdateRepairHistoryMutation,
   useDeleteRepairHistoryMutation,
 } from "../../shared/api/repairHistoryApi";
-import { useGetDevicesByUserIdQuery } from "../../shared/api/deviceApi";
+import { useGetMyDevicesQuery } from "../../shared/api/deviceApi";
 import type { IRepairHistory } from "../../shared/types";
 import { formatDeviceName } from "../../shared/repairHistory/deviceDisplay";
 import { removeChatReportSection } from "../../shared/repairHistory/chatReportLink";
@@ -80,11 +80,11 @@ const HistoryListView = () => {
   const navigate = useNavigate();
   const user = useAppSelector((s) => s.auth.user);
 
-  const { data: records = EMPTY_ARRAY, isLoading, isError, error } = useGetRepairHistoryByUserIdQuery(
-    user?.id ?? 0,
+  const { data: records = EMPTY_ARRAY, isLoading, isError, error } = useGetMyRepairHistoryQuery(
+    undefined,
     { skip: !user?.id }
   );
-  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
+  const { data: devices = EMPTY_ARRAY } = useGetMyDevicesQuery(undefined, { skip: !user?.id });
   const [deleteRepairHistory, { isLoading: isDeleting }] = useDeleteRepairHistoryMutation();
 
   const deviceGroups = useMemo(() => {
@@ -112,7 +112,7 @@ const HistoryListView = () => {
     try {
       await Promise.all(
         group.records.map((record) =>
-          deleteRepairHistory({ id: record.id, userId: user.id }).unwrap()
+          deleteRepairHistory(record.id).unwrap()
         )
       );
     } catch {
@@ -199,11 +199,11 @@ const HistoryReportDetailView = () => {
   const nameKey = nameKeyParam ? decodeURIComponent(nameKeyParam) : "";
   const validNameKey = nameKey.trim().length > 0;
 
-  const { data: records = EMPTY_ARRAY, isLoading: isRecordsLoading } = useGetRepairHistoryByUserIdQuery(
-    user?.id ?? 0,
+  const { data: records = EMPTY_ARRAY, isLoading: isRecordsLoading } = useGetMyRepairHistoryQuery(
+    undefined,
     { skip: !user?.id }
   );
-  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, { skip: !user?.id });
+  const { data: devices = EMPTY_ARRAY } = useGetMyDevicesQuery(undefined, { skip: !user?.id });
   const [updateRepairHistory, { isLoading: isStatusUpdating }] =
     useUpdateRepairHistoryMutation();
   const [deleteRepairHistory, { isLoading: isDeleting }] = useDeleteRepairHistoryMutation();
@@ -248,7 +248,7 @@ const HistoryReportDetailView = () => {
     }
 
     try {
-      await updateRepairHistory({ id: recordId, userId: user.id, patch }).unwrap();
+      await updateRepairHistory({ id: recordId, patch }).unwrap();
     } catch {
       window.alert("Не удалось обновить статус.");
     }
@@ -268,11 +268,10 @@ const HistoryReportDetailView = () => {
 
     try {
       if (!nextNotes) {
-        await deleteRepairHistory({ id: record.id, userId: user.id }).unwrap();
+        await deleteRepairHistory(record.id).unwrap();
       } else {
         await updateRepairHistory({
           id: record.id,
-          userId: user.id,
           patch: { result_notes: nextNotes },
         }).unwrap();
       }
@@ -305,7 +304,7 @@ const HistoryReportDetailView = () => {
     try {
       await Promise.all(
         deviceRecords.map((record) =>
-          deleteRepairHistory({ id: record.id, userId: user.id }).unwrap()
+          deleteRepairHistory(record.id).unwrap()
         )
       );
       navigate(RoutePath.history);
@@ -427,7 +426,7 @@ const LegacyRepairRedirect = () => {
   const { data: record, isLoading, isError } = useGetRepairHistoryByIdQuery(id, {
     skip: !validId,
   });
-  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
+  const { data: devices = EMPTY_ARRAY } = useGetMyDevicesQuery(undefined, {
     skip: !user?.id || !record?.device_id,
   });
 
@@ -490,7 +489,7 @@ const LegacyDeviceIdRedirect = () => {
   const { deviceId: deviceIdParam } = useParams<{ deviceId: string }>();
   const deviceId = deviceIdParam ? Number.parseInt(deviceIdParam, 10) : NaN;
 
-  const { data: devices = EMPTY_ARRAY, isLoading } = useGetDevicesByUserIdQuery(user?.id ?? 0, {
+  const { data: devices = EMPTY_ARRAY, isLoading } = useGetMyDevicesQuery(undefined, {
     skip: !user?.id,
   });
 

@@ -97,7 +97,7 @@ class RepairHistoryController {
     }
   }
 
-  async getRepairHistoryByUserId(req: Request<Pick<IRepairHistory, 'user_id' >>, res: Response): Promise<Response> {
+  async getMyRepairHistory(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.user?.id;
 

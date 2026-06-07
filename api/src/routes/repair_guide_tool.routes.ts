@@ -1,18 +1,14 @@
-import { Router } from 'express';
-import repairGuideToolController from '../controller/repair_guide_tool.controller';
-import { requireAuth } from '../middleware/requireAuth';
-
-const router = Router();
-
-router.use(requireAuth);
-
-// Маршруты для repair_guide_tools
-router.post('/repair-guide-tool', repairGuideToolController.addToolToGuide);
-router.get('/repair-guide-tools', repairGuideToolController.getAllRepairGuideTools);
-router.get('/repair-guide-tools/guide/:repair_guide_id', repairGuideToolController.getToolsByGuide);
-router.get('/repair-guide-tools/tool/:tool_id', repairGuideToolController.getGuidesByTool);
-router.get('/repair-guide-tool/:repair_guide_id/:tool_id', repairGuideToolController.getRepairGuideToolByIds);
-router.patch('/repair-guide-tool/:repair_guide_id/:tool_id', repairGuideToolController.updateRepairGuideTool);
-router.delete('/repair-guide-tool/:repair_guide_id/:tool_id', repairGuideToolController.deleteRepairGuideTool);
-
-export default router;
+import { Router } from 'express';
+import repairGuideToolController from '../controller/repair_guide_tool.controller';
+
+const router = Router();
+
+router.get('/me/repair-guide-tools', repairGuideToolController.getAllRepairGuideTools);
+router.post('/me/repair-guide-tools', repairGuideToolController.addToolToGuide);
+router.get('/me/repair-guide-tools/guide/:repair_guide_id', repairGuideToolController.getToolsByGuide);
+router.get('/me/repair-guide-tools/tool/:tool_id', repairGuideToolController.getGuidesByTool);
+router.get('/me/repair-guide-tools/:repair_guide_id/:tool_id', repairGuideToolController.getRepairGuideToolByIds);
+router.patch('/me/repair-guide-tools/:repair_guide_id/:tool_id', repairGuideToolController.updateRepairGuideTool);
+router.delete('/me/repair-guide-tools/:repair_guide_id/:tool_id', repairGuideToolController.deleteRepairGuideTool);
+
+export default router;

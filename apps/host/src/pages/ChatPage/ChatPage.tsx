@@ -13,22 +13,22 @@ import {
   useCreateAssistantChatMutation,
   useDeleteAssistantChatMutation,
   useGetAssistantChatByIdQuery,
-  useGetAssistantChatsByUserIdQuery,
+  useGetMyAssistantChatsQuery,
   useUpdateAssistantChatMutation,
 } from "../../shared/api/assistantChatsApi";
 import {
   useCreateDeviceMutation,
-  useGetDevicesByUserIdQuery,
+  useGetMyDevicesQuery,
 } from "../../shared/api/deviceApi";
 import {
   useCreateRepairHistoryMutation,
   useDeleteRepairHistoryMutation,
-  useGetRepairHistoryByUserIdQuery,
+  useGetMyRepairHistoryQuery,
   useUpdateRepairHistoryMutation,
 } from "../../shared/api/repairHistoryApi";
 import { useGetSkillsQuery } from "../../shared/api/skillsApi";
 import { useGetToolsQuery } from "../../shared/api/toolsApi";
-import { useGetUserToolsByUserIdQuery } from "../../shared/api/userToolsApi";
+import { useGetMyUserToolsQuery } from "../../shared/api/userToolsApi";
 import type { IAssistantChat, IAssistantChatMessage } from "../../shared/types";
 import {
   AI_DETECTED_DEVICE_MODEL,
@@ -290,12 +290,12 @@ const ChatPage = () => {
     isLoading: isChatsLoading,
     isError: isChatsError,
     refetch: refetchChats,
-  } = useGetAssistantChatsByUserIdQuery(userId ?? 0, { skip: !userId });
+  } = useGetMyAssistantChatsQuery(undefined, { skip: !userId });
   const { data: skills = EMPTY_ARRAY } = useGetSkillsQuery();
   const { data: tools = EMPTY_ARRAY } = useGetToolsQuery();
-  const { data: userTools = EMPTY_ARRAY } = useGetUserToolsByUserIdQuery(userId ?? 0, { skip: !userId });
-  const { data: devices = EMPTY_ARRAY } = useGetDevicesByUserIdQuery(userId ?? 0, { skip: !userId });
-  const { data: repairHistory = EMPTY_ARRAY } = useGetRepairHistoryByUserIdQuery(userId ?? 0, {
+  const { data: userTools = EMPTY_ARRAY } = useGetMyUserToolsQuery(undefined, { skip: !userId });
+  const { data: devices = EMPTY_ARRAY } = useGetMyDevicesQuery(undefined, { skip: !userId });
+  const { data: repairHistory = EMPTY_ARRAY } = useGetMyRepairHistoryQuery(undefined, {
     skip: !userId,
   });
 
@@ -452,7 +452,6 @@ const ChatPage = () => {
 
       if (!chatId) {
         const createdChat = await createAssistantChat({
-          user_id: userId,
           title: titleFromText(userApiText),
           messages: [{ author: "me", text: userApiText, created_at: new Date().toISOString() }],
         }).unwrap();
@@ -461,7 +460,6 @@ const ChatPage = () => {
       } else {
         await addAssistantChatMessage({
           chatId,
-          userId,
           message: { author: "me", text: userApiText, created_at: new Date().toISOString() },
         }).unwrap();
       }
@@ -475,7 +473,6 @@ const ChatPage = () => {
 
       await addAssistantChatMessage({
         chatId,
-        userId,
         message: { author: "companion", text: response, created_at: new Date().toISOString() },
       }).unwrap();
     } catch (err) {
@@ -542,7 +539,6 @@ const ChatPage = () => {
     try {
       await updateAssistantChat({
         id: renamingId,
-        userId,
         patch: { title },
       }).unwrap();
     } finally {
@@ -555,7 +551,7 @@ const ChatPage = () => {
     if (!window.confirm("Удалить этот чат? Вся переписка будет удалена без восстановления.")) {
       return;
     }
-    await deleteAssistantChat({ id: chatId, userId }).unwrap();
+    await deleteAssistantChat(chatId).unwrap();
     if (activeChatId === chatId) {
       handleNewChatClick();
     }
@@ -581,7 +577,6 @@ const ChatPage = () => {
     }
 
     const createdDevice = await createDevice({
-      user_id: userId!,
       device_type: deviceName,
       brand: null,
       model: AI_DETECTED_DEVICE_MODEL,
@@ -613,11 +608,10 @@ const ChatPage = () => {
       );
 
       if (!nextNotes) {
-        await deleteRepairHistory({ id: repairHistoryId, userId }).unwrap();
+        await deleteRepairHistory(repairHistoryId).unwrap();
       } else {
         await updateRepairHistory({
           id: repairHistoryId,
-          userId,
           patch: { result_notes: nextNotes },
         }).unwrap();
       }
@@ -683,7 +677,6 @@ const ChatPage = () => {
       if (existingReport) {
         await updateRepairHistory({
           id: existingReport.id,
-          userId,
           patch: {
             issue_description: issue,
             work_performed: assistantMessage.text,
@@ -699,7 +692,6 @@ const ChatPage = () => {
         repairHistoryId = existingReport.id;
       } else {
         const created = await createRepairHistory({
-          user_id: userId,
           device_id: reportDevice.id,
           issue_description: issue,
           started_at: new Date(),

@@ -46,7 +46,7 @@ class RepairGuideController {
     }
   }
 
-  async getRepairGuidesByUserId(req: Request<Pick<IRepairGuide, 'user_id'>>, res: Response): Promise<Response> {
+  async getMyRepairGuides(req: Request, res: Response): Promise<Response> {
     try {
       const userId = req.user?.id;
 

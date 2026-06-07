@@ -45,7 +45,6 @@ export interface ITool {
 
 export interface IDevice {
     id: number;
-    user_id: number;
     device_type: string;
     brand: string | null;
     model: string;
@@ -58,7 +57,6 @@ export interface IDevice {
 export interface IRepairGuide {
     id: number;
     title: string;
-    user_id: number;
     problem_description: string;
     instructions: string;
     recommendation: string | null;
@@ -80,7 +78,6 @@ export interface IArticle {
 
 export interface IRepairHistory {
     id: number;
-    user_id: number;
     device_id: number;
     repair_guide_id: number | null;
     started_at: Date;
@@ -96,7 +93,6 @@ export interface IRepairHistory {
 }
 
 export interface IUserTool {
-    user_id: number;
     tool_id: number;
     quantity: number;
 }
@@ -104,7 +100,6 @@ export interface IUserTool {
 export interface IRepairGuideTool {
     repair_guide_id: number;
     tool_id: number;
-    user_id: number;
     is_required: boolean;
     notes: string | null;
 }
@@ -121,7 +116,6 @@ export interface IAssistantChatMessage {
 
 export interface IAssistantChat {
     id: number;
-    user_id: number;
     title: string;
     created_at: string;
     updated_at: string;

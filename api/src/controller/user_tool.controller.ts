@@ -8,7 +8,7 @@ type CreateUserToolBody = Pick<IUserTool, 'tool_id'> &
 
 type UpdateUserToolBody = Partial<Pick<IUserTool, 'quantity'>>;
 
-type UserToolParams = { user_id: string; tool_id: string };
+type UserToolParams = { tool_id: string };
 
 class UserToolController {
   // Добавить инструмент пользователю (или увеличить количество)
@@ -73,28 +73,6 @@ class UserToolController {
     } catch (error: any) {
       return res.status(500).json({
         message: 'Ошибка при получении списка связей',
-        details: error.message
-      });
-    }
-  }
-
-  // Получить все инструменты конкретного пользователя
-  async getUserToolsByUser(req: Request<{user_id: string}>, res: Response): Promise<Response> {
-    try {
-      const userId = req.user?.id;
-
-      if (!userId) {
-        return res.status(401).json({ message: 'Необходима авторизация' });
-      }
-
-      const result: QueryResult<IUserTool[]> = await db.query(
-        'SELECT * FROM user_tools WHERE user_id = $1 ORDER BY tool_id',
-        [userId]
-      );
-      return res.json(result.rows);
-    } catch (error: any) {
-      return res.status(500).json({
-        message: 'Ошибка при получении инструментов пользователя',
         details: error.message
       });
     }

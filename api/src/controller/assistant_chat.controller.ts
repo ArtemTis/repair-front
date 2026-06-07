@@ -9,8 +9,6 @@ import {
   IdParam
 } from '../types';
 
-type UserIdParam = { user_id: string };
-
 type CreateChatBody = {
   title?: string;
   messages?: Array<{
@@ -80,7 +78,7 @@ const titleFromText = (text: string) => {
 const assertAuthor = (author: AssistantMessageAuthor) => validAuthors.includes(author);
 
 class AssistantChatController {
-  async getChatsByUserId(req: Request<UserIdParam>, res: Response): Promise<Response> {
+  async getMyChats(req: Request, res: Response): Promise<Response> {
     try {
       await ensureTables();
 

@@ -1,18 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { skipToken } from "@reduxjs/toolkit/query";
-import { useGetAssistantChatsByUserIdQuery } from "../../shared/api/assistantChatsApi";
-import { useGetRepairGuidesByUserIdQuery } from "../../shared/api/repairGuidesApi";
-import { useGetRepairHistoryByUserIdQuery } from "../../shared/api/repairHistoryApi";
+import { useGetMyAssistantChatsQuery } from "../../shared/api/assistantChatsApi";
+import { useGetMyRepairGuidesQuery } from "../../shared/api/repairGuidesApi";
+import { useGetMyRepairHistoryQuery } from "../../shared/api/repairHistoryApi";
 import { useGetSkillsQuery } from "../../shared/api/skillsApi";
 import { useCreateToolMutation, useGetToolsQuery } from "../../shared/api/toolsApi";
 import {
   useAddUserToolMutation,
   useDeleteUserToolMutation,
-  useGetUserToolsByUserIdQuery,
+  useGetMyUserToolsQuery,
   useUpdateUserToolQuantityMutation,
 } from "../../shared/api/userToolsApi";
-import { useGetUserByIdQuery, useUpdateUserMutation } from "../../shared/api/usersApi";
-import { setCredentials, setCurrentUser } from "../../shared/store/authSlice";
+import { useGetMeQuery, useUpdateMeMutation } from "../../shared/api/usersApi";
+import { setCurrentUser } from "../../shared/store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../shared/store/hooks";
 import { IRepairHistory } from "../../shared/types";
 import { Button, Card, Select, TextInput } from "../../shared/ui";
@@ -30,17 +29,16 @@ const ProfilePage = () => {
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
   const userId = currentUser?.id;
-  const queryUserId = userId ?? skipToken;
 
-  const { data: user } = useGetUserByIdQuery(queryUserId);
+  const { data: user } = useGetMeQuery(undefined, { skip: !userId });
   const { data: skills = EMPTY_ARRAY } = useGetSkillsQuery();
   const { data: tools = EMPTY_ARRAY } = useGetToolsQuery();
-  const { data: userTools = EMPTY_ARRAY } = useGetUserToolsByUserIdQuery(queryUserId);
-  const { data: repairGuides = EMPTY_ARRAY } = useGetRepairGuidesByUserIdQuery(queryUserId);
-  const { data: repairHistory = EMPTY_ARRAY } = useGetRepairHistoryByUserIdQuery(queryUserId);
-  const { data: assistantChats = EMPTY_ARRAY } = useGetAssistantChatsByUserIdQuery(queryUserId);
+  const { data: userTools = EMPTY_ARRAY } = useGetMyUserToolsQuery(undefined, { skip: !userId });
+  const { data: repairGuides = EMPTY_ARRAY } = useGetMyRepairGuidesQuery(undefined, { skip: !userId });
+  const { data: repairHistory = EMPTY_ARRAY } = useGetMyRepairHistoryQuery(undefined, { skip: !userId });
+  const { data: assistantChats = EMPTY_ARRAY } = useGetMyAssistantChatsQuery(undefined, { skip: !userId });
 
-  const [updateUser, { isLoading: isSkillUpdating }] = useUpdateUserMutation();
+  const [updateUser, { isLoading: isSkillUpdating }] = useUpdateMeMutation();
   const [addUserTool, { isLoading: isAddingTool }] = useAddUserToolMutation();
   const [updateToolQuantity] = useUpdateUserToolQuantityMutation();
   const [deleteUserTool] = useDeleteUserToolMutation();
@@ -97,8 +95,7 @@ const ProfilePage = () => {
     setFormMessage("");
     try {
       const updatedUser = await updateUser({
-        id: userId,
-        patch: { skill_level_id: skillLevelId },
+        skill_level_id: skillLevelId,
       }).unwrap();
       dispatch(setCurrentUser(updatedUser));
       setFormMessage("Уровень навыков обновлён.");
@@ -118,7 +115,6 @@ const ProfilePage = () => {
 
     try {
       await addUserTool({
-        user_id: userId,
         tool_id: selectedToolId,
         quantity: Math.max(1, toolQuantity),
       }).unwrap();
@@ -145,7 +141,6 @@ const ProfilePage = () => {
       }).unwrap();
 
       await addUserTool({
-        user_id: userId,
         tool_id: createdTool.id,
         quantity: 1,
       }).unwrap();
@@ -163,12 +158,11 @@ const ProfilePage = () => {
 
     try {
       if (normalizedQuantity === 0) {
-        await deleteUserTool({ userId, toolId }).unwrap();
+        await deleteUserTool(toolId).unwrap();
         return;
       }
 
       await updateToolQuantity({
-        userId,
         toolId,
         quantity: normalizedQuantity,
       }).unwrap();
@@ -180,7 +174,7 @@ const ProfilePage = () => {
   const handleRemoveTool = async (toolId: number) => {
     setFormMessage("");
     try {
-      await deleteUserTool({ userId, toolId }).unwrap();
+      await deleteUserTool(toolId).unwrap();
       setFormMessage("Инструмент удалён из инвентаря.");
     } catch {
       setFormMessage("Не удалось удалить инструмент.");

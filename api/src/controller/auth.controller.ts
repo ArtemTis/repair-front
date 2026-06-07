@@ -94,10 +94,21 @@ class AuthController {
         return res.status(401).json({ message: 'Неверный email или пароль' });
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isBcryptHash = user.password.startsWith('$2a$') || user.password.startsWith('$2b$');
+      const isPasswordValid = isBcryptHash
+        ? await bcrypt.compare(password, user.password)
+        : password === user.password;
 
       if (!isPasswordValid) {
         return res.status(401).json({ message: 'Неверный email или пароль' });
+      }
+
+      if (!isBcryptHash) {
+        const passwordHash = await bcrypt.hash(password, 12);
+        await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [
+          passwordHash,
+          user.id,
+        ]);
       }
 
       const refreshToken = signRefreshToken(user);
