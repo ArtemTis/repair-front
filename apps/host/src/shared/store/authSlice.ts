@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { IAuthResponse, IAuthUser, IUser } from "../types";
 
 const AUTH_STORAGE_KEY = "techservice_current_user";
+export const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 
 interface AuthState {
   user: IAuthUser | null;
@@ -23,14 +24,17 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.isAuthReady = true;
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, action.payload.accessToken);
     },
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, action.payload);
     },
     logout: (state) => {
       state.user = null;
       state.accessToken = null;
       state.isAuthReady = true;
+      localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
     },
     finishAuthCheck(state) {
       state.isAuthReady = true;

@@ -4,6 +4,8 @@ const CopyWebpackPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 const DotenvWebpack = require("dotenv-webpack");
+const { ModuleFederationPlugin } = require("webpack").container;
+const shared = require("./webpack.shared");
 
 module.exports = (_, argv) => {
   const isProduction = argv.mode === "production";
@@ -16,7 +18,8 @@ module.exports = (_, argv) => {
       chunkFilename: isProduction
         ? "static/js/[name].[contenthash].chunk.js"
         : "static/js/[name].chunk.js",
-      publicPath: "/",
+      publicPath: isProduction ? "auto" : "http://localhost:3001/",
+      uniqueName: "admin",
       clean: true,
     },
     mode: isProduction ? "production" : "development",
@@ -50,6 +53,15 @@ module.exports = (_, argv) => {
       ],
     },
     plugins: [
+      new ModuleFederationPlugin({
+        name: "admin",
+        filename: "remoteEntry.js",
+        library: { type: "var", name: "admin" },
+        exposes: {
+          "./AdminApp": "./src/AdminApp",
+        },
+        shared,
+      }),
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, "public", "index.html"),
       }),
@@ -81,18 +93,30 @@ module.exports = (_, argv) => {
       }),
     ],
     optimization: {
-      runtimeChunk: "single",
-      splitChunks: {
-        chunks: "all",
-      },
+      splitChunks: false,
     },
     devServer: {
       port: 3001,
-      historyApiFallback: true,
+      historyApiFallback: {
+        index: "/index.html",
+        disableDotRule: true,
+      },
       hot: true,
-      open: true,
+      liveReload: false,
+      open: "/admin",
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       static: {
         directory: path.resolve(__dirname, "public"),
+      },
+      client: {
+        webSocketURL: {
+          hostname: "localhost",
+          pathname: "/ws",
+          port: 3001,
+          protocol: "ws",
+        },
       },
     },
     performance: {
