@@ -9,10 +9,7 @@ import {
   IdParam
 } from '../types';
 
-type UserIdParam = { user_id: string };
-
 type CreateChatBody = {
-  user_id: number;
   title?: string;
   messages?: Array<{
     author: AssistantMessageAuthor;
@@ -81,11 +78,16 @@ const titleFromText = (text: string) => {
 const assertAuthor = (author: AssistantMessageAuthor) => validAuthors.includes(author);
 
 class AssistantChatController {
-  async getChatsByUserId(req: Request<UserIdParam>, res: Response): Promise<Response> {
+  async getMyChats(req: Request, res: Response): Promise<Response> {
     try {
       await ensureTables();
 
-      const { user_id } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const chats: QueryResult<IAssistantChat> = await db.query(
         `
         SELECT id, user_id, title, created_at, updated_at
@@ -93,7 +95,7 @@ class AssistantChatController {
         WHERE user_id = $1
         ORDER BY updated_at DESC, id DESC
         `,
-        [user_id]
+        [userId]
       );
 
       return res.json(chats.rows);
@@ -109,10 +111,16 @@ class AssistantChatController {
     try {
       await ensureTables();
 
+      const userId = req.user?.id;
       const { id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const chat: QueryResult<IAssistantChat> = await db.query(
-        'SELECT id, user_id, title, created_at, updated_at FROM assistant_chats WHERE id = $1',
-        [id]
+        'SELECT id, user_id, title, created_at, updated_at FROM assistant_chats WHERE id = $1 AND user_id = $2',
+        [id, userId]
       );
 
       if (!chat.rows[0]) {
@@ -147,11 +155,12 @@ class AssistantChatController {
     try {
       await ensureTables();
 
-      const { user_id, messages = [] } = req.body;
+      const userId = req.user?.id;
+      const { messages = [] } = req.body;
       let { title } = req.body;
 
-      if (!user_id) {
-        return res.status(400).json({ message: 'Поле user_id обязательно' });
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
       }
 
       for (const message of messages) {
@@ -176,7 +185,7 @@ class AssistantChatController {
           )
           RETURNING id, user_id, title, created_at, updated_at
           `,
-          [user_id, title]
+          [userId, title]
         );
 
         const chatId = chat.rows[0].id;
@@ -221,8 +230,13 @@ class AssistantChatController {
     try {
       await ensureTables();
 
+      const userId = req.user?.id;
       const { id } = req.params;
       const { title } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
 
       if (!title?.trim()) {
         return res.status(400).json({ message: 'Поле title обязательно' });
@@ -232,10 +246,10 @@ class AssistantChatController {
         `
         UPDATE assistant_chats
         SET title = $1, updated_at = NOW()
-        WHERE id = $2
+        WHERE id = $2 AND user_id = $3
         RETURNING id, user_id, title, created_at, updated_at
         `,
-        [title.trim(), id]
+        [title.trim(), id, userId]
       );
 
       if (!chat.rows[0]) {
@@ -255,8 +269,13 @@ class AssistantChatController {
     try {
       await ensureTables();
 
+      const userId = req.user?.id;
       const { id } = req.params;
       const { author, text, created_at } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
 
       if (!text?.trim() || !assertAuthor(author)) {
         return res.status(400).json({ message: 'Поля author и text обязательны' });
@@ -267,8 +286,8 @@ class AssistantChatController {
         await client.query('BEGIN');
 
         const chatExists: QueryResult<{ id: number }> = await client.query(
-          'SELECT id FROM assistant_chats WHERE id = $1',
-          [id]
+          'SELECT id FROM assistant_chats WHERE id = $1 AND user_id = $2',
+          [id, userId]
         );
 
         if (!chatExists.rows[0]) {
@@ -322,10 +341,16 @@ class AssistantChatController {
     try {
       await ensureTables();
 
+      const userId = req.user?.id;
       const { id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const deleted: QueryResult<{ id: number }> = await db.query(
-        'DELETE FROM assistant_chats WHERE id = $1 RETURNING id',
-        [id]
+        'DELETE FROM assistant_chats WHERE id = $1 AND user_id = $2 RETURNING id',
+        [id, userId]
       );
 
       if (!deleted.rows[0]) {

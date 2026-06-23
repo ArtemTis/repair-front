@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { QueryResult } from 'pg';
 import db from '../db';
 import { IUser } from '../types';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import type { JwtPayload, SignOptions } from 'jsonwebtoken';
 
 type AuthUser = Omit<IUser, 'password'>;
 
@@ -19,7 +22,51 @@ type RegisterBody = {
 
 type AuthResponse = {
   user: AuthUser;
-  // Позже сюда можно без изменения контракта добавить token/refreshToken/expiresAt.
+  accessToken: string;
+};
+
+type JwtUserPayload = JwtPayload & {
+  userId: number;
+};
+
+const getJwtSecret = (name: 'JWT_ACCESS_SECRET' | 'JWT_REFRESH_SECRET') => {
+  const secret = process.env[name];
+
+  if (!secret) {
+    throw new Error(`${name} is not configured`);
+  }
+
+  return secret;
+};
+
+const signAccessToken = (user: IUser) => {
+  const expiresIn = (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as SignOptions['expiresIn'];
+
+  return jwt.sign(
+    { userId: user.id },
+    getJwtSecret('JWT_ACCESS_SECRET'),
+    { expiresIn }
+  );
+};
+
+const signRefreshToken = (user: IUser) => {
+  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as SignOptions['expiresIn'];
+
+  return jwt.sign(
+    { userId: user.id },
+    getJwtSecret('JWT_REFRESH_SECRET'),
+    { expiresIn }
+  );
+};
+
+const verifyRefreshToken = (token: string): JwtUserPayload => {
+  const decoded = jwt.verify(token, getJwtSecret('JWT_REFRESH_SECRET'));
+
+  if (typeof decoded === 'string' || typeof decoded.userId !== 'number') {
+    throw new Error('Invalid refresh token payload');
+  }
+
+  return decoded as JwtUserPayload;
 };
 
 const toAuthUser = (user: IUser): AuthUser => {
@@ -43,11 +90,41 @@ class AuthController {
       );
       const user = result.rows[0];
 
-      if (!user || user.password !== password) {
+      if (!user) {
         return res.status(401).json({ message: 'Неверный email или пароль' });
       }
 
-      const response: AuthResponse = { user: toAuthUser(user) };
+      const isBcryptHash = user.password.startsWith('$2a$') || user.password.startsWith('$2b$');
+      const isPasswordValid = isBcryptHash
+        ? await bcrypt.compare(password, user.password)
+        : password === user.password;
+
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Неверный email или пароль' });
+      }
+
+      if (!isBcryptHash) {
+        const passwordHash = await bcrypt.hash(password, 12);
+        await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [
+          passwordHash,
+          user.id,
+        ]);
+      }
+
+      const refreshToken = signRefreshToken(user);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      const response: AuthResponse = {
+        user: toAuthUser(user),
+        accessToken: signAccessToken(user),
+      };
+
       return res.json(response);
     } catch (error: any) {
       return res.status(500).json({
@@ -70,6 +147,8 @@ class AuthController {
         });
       }
 
+      const passwordHash = await bcrypt.hash(password, 12);
+
       const existingUser: QueryResult<{ id: number }> = await db.query(
         'SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1',
         [email]
@@ -88,14 +167,121 @@ class AuthController {
         )
         RETURNING *
         `,
-        [fullName, email, password, skillLevelId]
+        [fullName, email, passwordHash, skillLevelId]
       );
 
-      const response: AuthResponse = { user: toAuthUser(result.rows[0]) };
+      const createdUser = result.rows[0];
+
+      const response: AuthResponse = {
+        user: toAuthUser(createdUser),
+        accessToken: signAccessToken(createdUser),
+      };
+
+      const refreshToken = signRefreshToken(createdUser);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
       return res.status(201).json(response);
     } catch (error: any) {
       return res.status(500).json({
         message: 'Ошибка при регистрации пользователя',
+        details: error.message,
+      });
+    }
+  }
+
+  async refresh(req: Request, res: Response): Promise<Response> {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      if (!refreshToken) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+      const decoded = verifyRefreshToken(refreshToken);
+      const userId = decoded.userId;
+      const result: QueryResult<IUser> = await db.query(
+        'SELECT * FROM users WHERE id = $1 LIMIT 1',
+        [userId]
+      );
+
+      const user = result.rows[0];
+
+      if (!user) {
+        return res.status(401).json({ message: 'Пользователь не найден' });
+      }
+
+      return res.status(200).json({
+        user: toAuthUser(user),
+        accessToken: signAccessToken(user),
+      });
+    } catch (error: any) {
+      return res.status(500).json({
+        message: 'Ошибка при обновлении токена',
+        details: error.message,
+      });
+    }
+
+  }
+
+  async logout(req: Request, res: Response): Promise<Response> {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      if (!refreshToken) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+      const decoded = verifyRefreshToken(refreshToken);
+      const userId = decoded.userId;
+      const result: QueryResult<IUser> = await db.query(
+        'SELECT * FROM users WHERE id = $1 LIMIT 1',
+        [userId]
+      );
+
+      const user = result.rows[0];
+
+      if (!user) {
+        return res.status(401).json({ message: 'Пользователь не найден' });
+      }
+
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+
+      return res.status(200).json({ message: 'Выход из системы успешно выполнен' });
+    } catch (error: any) {
+      return res.status(500).json({
+        message: 'Ошибка при выходе из системы',
+        details: error.message,
+      });
+    }
+  }
+
+  async me(req: Request, res: Response): Promise<Response> {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      const result: QueryResult<IUser> = await db.query(
+        'SELECT * FROM users WHERE id = $1 LIMIT 1',
+        [userId]
+      );
+      const user = result.rows[0];
+
+      if (!user) {
+        return res.status(401).json({ message: 'Пользователь не найден' });
+      }
+      return res.status(200).json({ user: toAuthUser(user) });
+    } catch (error: any) {
+      return res.status(500).json({
+        message: 'Ошибка при получении информации о пользователе',
         details: error.message,
       });
     }

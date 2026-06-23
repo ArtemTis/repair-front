@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { QueryResult } from 'pg';
 import { IdParam, IRepairGuide } from '../types';
 
-type CreateRepairGuideBody = Pick<IRepairGuide, 'title' | 'problem_description' | 'instructions' | 'min_skill_level_id' | 'user_id'> &
+type CreateRepairGuideBody = Pick<IRepairGuide, 'title' | 'problem_description' | 'instructions' | 'min_skill_level_id'> &
   Partial<Pick<IRepairGuide, 'recommendation'>>;
 
 type UpdateRepairGuideBody = Partial<Pick<IRepairGuide, 'title' | 'problem_description' | 'instructions' | 'recommendation' | 'min_skill_level_id'>>;
@@ -12,9 +12,14 @@ type UpdateRepairGuideBody = Partial<Pick<IRepairGuide, 'title' | 'problem_descr
 class RepairGuideController {
   async createRepairGuide(req: Request<{}, {}, CreateRepairGuideBody>, res: Response): Promise<Response> {
     try {
-      const { title, problem_description, instructions, min_skill_level_id, recommendation, user_id } = req.body;
+      const userId = req.user?.id;
+      const { title, problem_description, instructions, min_skill_level_id, recommendation } = req.body;
 
-      if (!title || !problem_description || !instructions || !min_skill_level_id || !user_id) {
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (!title || !problem_description || !instructions || !min_skill_level_id) {
         return res.status(400).json({
           message: 'Поля title, problem_description, instructions и min_skill_level_id обязательны'
         });
@@ -29,7 +34,7 @@ class RepairGuideController {
         )
         RETURNING *
         `,
-        [title, problem_description, instructions, recommendation ?? null, min_skill_level_id, user_id]
+        [title, problem_description, instructions, recommendation ?? null, min_skill_level_id, userId]
       );
 
       return res.status(201).json(newGuide.rows[0]);
@@ -41,11 +46,15 @@ class RepairGuideController {
     }
   }
 
-  async getRepairGuidesByUserId(req: Request<Pick<IRepairGuide, 'user_id'>>, res: Response): Promise<Response> {
+  async getMyRepairGuides(req: Request, res: Response): Promise<Response> {
     try {
-      const { user_id } = req.params;
+      const userId = req.user?.id;
 
-      const guides: QueryResult<IRepairGuide[]> = await db.query('SELECT * FROM repair_guides WHERE user_id = $1', [user_id]);
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      const guides: QueryResult<IRepairGuide[]> = await db.query('SELECT * FROM repair_guides WHERE user_id = $1', [userId]);
 
       return res.json(guides.rows);
     } catch (error: any) {
@@ -58,8 +67,14 @@ class RepairGuideController {
 
   async getRepairGuideById(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
-      const guide: QueryResult<IRepairGuide> = await db.query('SELECT * FROM repair_guides WHERE id = $1', [id]);
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      const guide: QueryResult<IRepairGuide> = await db.query('SELECT * FROM repair_guides WHERE id = $1 AND user_id = $2', [id, userId]);
 
       if (!guide.rows[0]) {
         return res.status(404).json({ message: 'Руководство по ремонту не найдено' });
@@ -76,8 +91,13 @@ class RepairGuideController {
 
   async updateRepairGuide(req: Request<IdParam, {}, UpdateRepairGuideBody>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
       const { title, problem_description, instructions, recommendation, min_skill_level_id } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
 
       const guide: QueryResult<IRepairGuide> = await db.query(
         `
@@ -89,10 +109,10 @@ class RepairGuideController {
           recommendation = COALESCE($4, recommendation),
           min_skill_level_id = COALESCE($5, min_skill_level_id),
           updated_at = NOW()
-        WHERE id = $6
+        WHERE id = $6 AND user_id = $7
         RETURNING *
         `,
-        [title ?? null, problem_description ?? null, instructions ?? null, recommendation ?? null, min_skill_level_id ?? null, id]
+        [title ?? null, problem_description ?? null, instructions ?? null, recommendation ?? null, min_skill_level_id ?? null, id, userId]
       );
 
       if (!guide.rows[0]) {
@@ -110,10 +130,16 @@ class RepairGuideController {
 
   async deleteRepairGuide(req: Request<IdParam>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const deletedGuide: QueryResult<{ id: number }> = await db.query(
-        'DELETE FROM repair_guides WHERE id = $1 RETURNING id',
-        [id]
+        'DELETE FROM repair_guides WHERE id = $1 AND user_id = $2 RETURNING id',
+        [id, userId]
       );
 
       if (!deletedGuide.rows[0]) {

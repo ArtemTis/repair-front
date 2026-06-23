@@ -8,7 +8,6 @@ import { captionForRepairChatTitle } from "../chat/repairAssistantEnvelope";
 import { baseApi } from "./baseApi";
 
 type AssistantChatCreateBody = {
-  user_id: number;
   title?: string;
   messages?: Array<{
     author: AssistantMessageAuthor;
@@ -25,7 +24,6 @@ type AssistantChatMessageCreateBody = {
 
 type AssistantChatMessageAddArg = {
   chatId: number;
-  userId: number;
   message: AssistantChatMessageCreateBody;
 };
 
@@ -38,28 +36,28 @@ const assistantChatTitleFromText = (text: string): string => {
 
 export const assistantChatsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getAssistantChatsByUserId: build.query<IAssistantChat[], number>({
-      query: (userId) => `/api/assistant-chats/user/${userId}`,
-      providesTags: (result, _e, userId) =>
+    getMyAssistantChats: build.query<IAssistantChat[], void>({
+      query: () => "/api/me/assistant-chats",
+      providesTags: (result) =>
         result
           ? [
-              ...result.map(({ id }) => ({
-                type: "AssistantChat" as const,
-                id,
-              })),
-              { type: "AssistantChat", id: `USER_${userId}` },
-            ]
-          : [{ type: "AssistantChat", id: `USER_${userId}` }],
+            ...result.map(({ id }) => ({
+              type: "AssistantChat" as const,
+              id,
+            })),
+            { type: "AssistantChat", id: "LIST" },
+          ]
+          : [{ type: "AssistantChat", id: "LIST" }],
     }),
     getAssistantChatById: build.query<IAssistantChatWithMessages, number>({
-      query: (id) => `/api/assistant-chats/${id}`,
+      query: (id) => `/api/me/assistant-chats/${id}`,
       providesTags: (_r, _e, id) => [{ type: "AssistantChat", id }],
     }),
     createAssistantChat: build.mutation<
       IAssistantChatWithMessages,
       AssistantChatCreateBody
     >({
-      query: (body) => ({ url: "/api/assistant-chats", method: "POST", body }),
+      query: (body) => ({ url: "/api/me/assistant-chats", method: "POST", body }),
       invalidatesTags: [],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
@@ -67,8 +65,8 @@ export const assistantChatsApi = baseApi.injectEndpoints({
           const { messages: _messages, ...chatRow } = data;
           dispatch(
             assistantChatsApi.util.updateQueryData(
-              "getAssistantChatsByUserId",
-              arg.user_id,
+              "getMyAssistantChats",
+              undefined,
               (draft) => {
                 draft.unshift(chatRow);
               }
@@ -88,16 +86,16 @@ export const assistantChatsApi = baseApi.injectEndpoints({
     }),
     updateAssistantChat: build.mutation<
       IAssistantChat,
-      { id: number; userId: number; patch: Pick<IAssistantChat, "title"> }
+      { id: number; patch: Pick<IAssistantChat, "title"> }
     >({
       query: ({ id, patch }) => ({
-        url: `/api/assistant-chats/${id}`,
+        url: `/api/me/assistant-chats/${id}`,
         method: "PATCH",
         body: patch,
       }),
-      invalidatesTags: (_r, _e, { id, userId }) => [
+      invalidatesTags: (_r, _e, { id }) => [
         { type: "AssistantChat", id },
-        { type: "AssistantChat", id: `USER_${userId}` },
+        { type: "AssistantChat", id: "LIST" },
       ],
     }),
     addAssistantChatMessage: build.mutation<
@@ -105,12 +103,12 @@ export const assistantChatsApi = baseApi.injectEndpoints({
       AssistantChatMessageAddArg
     >({
       query: ({ chatId, message }) => ({
-        url: `/api/assistant-chats/${chatId}/messages`,
+        url: `/api/me/assistant-chats/${chatId}/messages`,
         method: "POST",
         body: message,
       }),
       invalidatesTags: [],
-      async onQueryStarted({ chatId, userId, message }, { dispatch, queryFulfilled }) {
+      async onQueryStarted({ chatId, message }, { dispatch, queryFulfilled }) {
         try {
           const { data: newMsg } = await queryFulfilled;
           dispatch(
@@ -128,8 +126,8 @@ export const assistantChatsApi = baseApi.injectEndpoints({
           );
           dispatch(
             assistantChatsApi.util.updateQueryData(
-              "getAssistantChatsByUserId",
-              userId,
+              "getMyAssistantChats",
+              undefined,
               (draft) => {
                 const idx = draft.findIndex((c) => c.id === chatId);
                 if (idx === -1) return;
@@ -152,21 +150,21 @@ export const assistantChatsApi = baseApi.injectEndpoints({
         }
       },
     }),
-    deleteAssistantChat: build.mutation<void, { id: number; userId: number }>({
-      query: ({ id }) => ({
-        url: `/api/assistant-chats/${id}`,
+    deleteAssistantChat: build.mutation<void, number>({
+      query: (id) => ({
+        url: `/api/me/assistant-chats/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: (_r, _e, { id, userId }) => [
+      invalidatesTags: (_r, _e, id) => [
         { type: "AssistantChat", id },
-        { type: "AssistantChat", id: `USER_${userId}` },
+        { type: "AssistantChat", id: "LIST" },
       ],
     }),
   }),
 });
 
 export const {
-  useGetAssistantChatsByUserIdQuery,
+  useGetMyAssistantChatsQuery,
   useGetAssistantChatByIdQuery,
   useCreateAssistantChatMutation,
   useUpdateAssistantChatMutation,

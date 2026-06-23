@@ -8,6 +8,11 @@ const DevicesPage = lazy(() => import("../../pages/ProfilePage/DevicesPage"));
 const SkillsPage = lazy(() => import("../../pages/ProfilePage/SkillsPage"));
 const ArticlesPage = lazy(() => import("../../pages/ArticlesPage/ArticlesPage"));
 const ServicesPage = lazy(() => import("../../pages/ServicesPage/ServicesPage"));
+const AdminRemoteWrapper = lazy(() =>
+  import("../../pages/AdminPage/AdminRemoteWrapper").then((module) => ({
+    default: module.AdminRemoteWrapper,
+  }))
+);
 
 export enum AppRoutes {
   AUTH = "auth",
@@ -17,7 +22,8 @@ export enum AppRoutes {
   SERVICES = "services",
   PROFILE = "profile",
   SKILLS = "skills",
-  DEVICES = "devices"
+  DEVICES = "devices",
+  ADMIN = "admin",
 }
 
 export const RoutePath: Record<AppRoutes, string> = {
@@ -28,10 +34,15 @@ export const RoutePath: Record<AppRoutes, string> = {
   [AppRoutes.SERVICES]: "/services",
   [AppRoutes.PROFILE]: "/profile",
   [AppRoutes.DEVICES]: "/profile/devices",
-  [AppRoutes.SKILLS]: "/profile/skills"
+  [AppRoutes.SKILLS]: "/profile/skills",
+  [AppRoutes.ADMIN]: "/admin",
 };
 
-export const routerConfig: Record<AppRoutes, RouteProps> = {
+export type RouterConfigItem = RouteProps & {
+  withoutLayout?: boolean;
+};
+
+export const routerConfig: Record<AppRoutes, RouterConfigItem> = {
   [AppRoutes.AUTH]: {
     path: RoutePath.auth,
     element: <AuthPage />,
@@ -63,5 +74,10 @@ export const routerConfig: Record<AppRoutes, RouteProps> = {
   [AppRoutes.SKILLS]: {
     path: RoutePath.skills,
     element: <SkillsPage />,
-  }
+  },
+  [AppRoutes.ADMIN]: {
+    path: `${RoutePath.admin}/*`,
+    element: <AdminRemoteWrapper />,
+    withoutLayout: true,
+  },
 };

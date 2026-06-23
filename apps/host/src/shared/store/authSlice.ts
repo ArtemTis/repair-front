@@ -1,50 +1,49 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { IAuthUser, IUser } from "../types";
+import { IAuthResponse, IAuthUser, IUser } from "../types";
 
 const AUTH_STORAGE_KEY = "techservice_current_user";
+export const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 
 interface AuthState {
   user: IAuthUser | null;
+  accessToken: string | null;
+  isAuthReady: boolean;
 }
 
-const readStoredUser = (): IAuthUser | null => {
-  try {
-    const rawUser = localStorage.getItem(AUTH_STORAGE_KEY);
-    return rawUser ? (JSON.parse(rawUser) as IAuthUser) : null;
-  } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
-  }
-};
-
-const saveUser = (user: IAuthUser | null) => {
-  if (!user) {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    return;
-  }
-
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-};
-
 const initialState: AuthState = {
-  user: readStoredUser(),
+  user: null,
+  accessToken: null,
+  isAuthReady: false,
 };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setCurrentUser: (state, action: PayloadAction<IUser | IAuthUser>) => {
-      const { password: _password, ...safeUser } = action.payload as IUser;
-      state.user = safeUser;
-      saveUser(safeUser);
+    setCredentials: (state, action: PayloadAction<IAuthResponse>) => {
+      state.user = action.payload.user;
+      state.accessToken = action.payload.accessToken;
+      state.isAuthReady = true;
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, action.payload.accessToken);
+    },
+    setAccessToken: (state, action: PayloadAction<string>) => {
+      state.accessToken = action.payload;
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, action.payload);
     },
     logout: (state) => {
       state.user = null;
-      saveUser(null);
+      state.accessToken = null;
+      state.isAuthReady = true;
+      localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    },
+    finishAuthCheck(state) {
+      state.isAuthReady = true;
+    },
+    setCurrentUser: (state, action: PayloadAction<IAuthUser>) => {
+      state.user = action.payload;
     },
   },
 });
 
-export const { logout, setCurrentUser } = authSlice.actions;
+export const { logout, setCredentials, finishAuthCheck, setAccessToken, setCurrentUser } = authSlice.actions;
 export const authReducer = authSlice.reducer;

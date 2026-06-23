@@ -1,16 +1,12 @@
-import express, { ErrorRequestHandler, Request, Response } from 'express';
-import userRouter from './routes/user.routers';
+import './types/express';
+import express, { ErrorRequestHandler, Request, RequestHandler, Response } from 'express';
+import cookieParser from 'cookie-parser';
+import authRouter from './routes/auth.routes';
 import skillRouter from './routes/skill.routers';
 import toolRouter from './routes/tool.routes';
-import deviceRouter from './routes/device.routes';
-import repairGuide from './routes/repair_guide.routes';
-import repairHistory from './routes/repair_history.routes';
-import userTools from './routes/user_tools.routes';
-import repairGuideTools from './routes/repair_guide_tool.routes';
-import authRouter from './routes/auth.routes';
-import assistantChats from './routes/assistant_chat.routes';
 import articleRouter from './routes/article.routes';
 import adminRouter from './routes/admin.routes';
+import protectedRouter from './routes/protected.routes';
 
 const PORT = process.env.PORT || 8080;
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '100mb';
@@ -30,6 +26,7 @@ app.use((req: Request, res: Response, next) => {
     res.header('Access-Control-Allow-Origin', responseOrigin);
     res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
         return res.sendStatus(204);
@@ -38,23 +35,18 @@ app.use((req: Request, res: Response, next) => {
     return next();
 });
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
+app.use(cookieParser() as unknown as RequestHandler);
 
 app.get('/', (req: Request, res: Response) => {
     res.status(200).json({ message: 'API is running' });
 });
 
 app.use('/api', authRouter);
-app.use('/api', userRouter);
 app.use('/api', skillRouter);
 app.use('/api', toolRouter);
-app.use('/api', deviceRouter);
-app.use('/api', repairGuide);
-app.use('/api', repairHistory);
-app.use('/api', assistantChats);
-app.use('/api', userTools);
-app.use('/api', repairGuideTools);
 app.use('/api', articleRouter);
 app.use('/api', adminRouter);
+app.use('/api', protectedRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     if (res.headersSent) {

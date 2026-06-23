@@ -58,6 +58,10 @@ export const UsersPage = () => {
     return (
       <div className="state state--error">
         <p>Не удалось загрузить пользователей.</p>
+        <p>
+          Проверьте, что API запущен (<code>npm run api:start</code>) и доступен по адресу{" "}
+          {process.env.REACT_APP_API_BASE_URL || "http://localhost:8080"}.
+        </p>
         <button type="button" className="button" onClick={() => refetch()}>
           Повторить
         </button>

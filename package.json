@@ -16,11 +16,15 @@
     "admin:typecheck": "npm run typecheck -w apps/admin",
     "api:start": "npm run start -w api",
     "api:build": "npm run build -w api",
-    "dev": "concurrently \"npm run api:start\" \"npm run host:start\" \"npm run admin:start\"",
+    "predev": "kill-port 3000 3001 9119",
+    "dev": "concurrently -k -n api,admin,host -c blue,magenta,green \"npm run api:start\" \"npm run admin:start\" \"wait-on http://localhost:3001/remoteEntry.js && npm run host:start\"",
     "build": "npm run api:build && npm run host:build && npm run admin:build",
     "typecheck": "npm run host:typecheck && npm run admin:typecheck"
   },
   "devDependencies": {
-    "concurrently": "^10.0.0"
+    "@ungap/structured-clone": "^1.3.1",
+    "concurrently": "^10.0.0",
+    "kill-port": "^2.0.1",
+    "wait-on": "^9.0.10"
   }
 }

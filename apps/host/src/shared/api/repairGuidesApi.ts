@@ -8,45 +8,37 @@ type RepairGuideCreateBody = Omit<
 
 export const repairGuidesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getRepairGuidesByUserId: build.query<IRepairGuide[], number>({
-      query: (userId) => `/api/repair-guides/user/${userId}`,
-      providesTags: (_r, _e, userId) => [
-        { type: "RepairGuide", id: `USER_${userId}` },
-      ],
+    getMyRepairGuides: build.query<IRepairGuide[], void>({
+      query: () => "/api/me/repair-guides",
+      providesTags: [{ type: "RepairGuide", id: "LIST" }],
     }),
     getRepairGuideById: build.query<IRepairGuide, number>({
-      query: (id) => `/api/repair-guide/${id}`,
+      query: (id) => `/api/me/repair-guides/${id}`,
       providesTags: (_r, _e, id) => [{ type: "RepairGuide", id }],
     }),
     createRepairGuide: build.mutation<IRepairGuide, RepairGuideCreateBody>({
-      query: (body) => ({ url: "/api/repair-guide", method: "POST", body }),
-      invalidatesTags: (_r, _e, body) => [
-        { type: "RepairGuide", id: `USER_${body.user_id}` },
-        { type: "RepairGuide", id: "LIST" },
-      ],
+      query: (body) => ({ url: "/api/me/repair-guides", method: "POST", body }),
+      invalidatesTags: [{ type: "RepairGuide", id: "LIST" }],
     }),
     updateRepairGuide: build.mutation<
       IRepairGuide,
       { id: number; patch: Partial<IRepairGuide> }
     >({
       query: ({ id, patch }) => ({
-        url: `/api/repair-guide/${id}`,
+        url: `/api/me/repair-guides/${id}`,
         method: "PATCH",
         body: patch,
       }),
-      invalidatesTags: (_r, _e, { id, patch }) => {
+      invalidatesTags: (_r, _e, { id }) => {
         const tags: Array<{ type: "RepairGuide"; id: number | string }> = [
           { type: "RepairGuide", id },
           { type: "RepairGuide", id: "LIST" },
         ];
-        if (patch.user_id !== undefined) {
-          tags.push({ type: "RepairGuide", id: `USER_${patch.user_id}` });
-        }
         return tags;
       },
     }),
     deleteRepairGuide: build.mutation<void, number>({
-      query: (id) => ({ url: `/api/repair-guide/${id}`, method: "DELETE" }),
+      query: (id) => ({ url: `/api/me/repair-guides/${id}`, method: "DELETE" }),
       invalidatesTags: (_r, _e, id) => [
         { type: "RepairGuide", id },
         { type: "RepairGuide", id: "LIST" },
@@ -56,7 +48,7 @@ export const repairGuidesApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useGetRepairGuidesByUserIdQuery,
+  useGetMyRepairGuidesQuery,
   useGetRepairGuideByIdQuery,
   useCreateRepairGuideMutation,
   useUpdateRepairGuideMutation,

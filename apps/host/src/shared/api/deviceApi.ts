@@ -5,43 +5,34 @@ type DeviceCreateBody = Omit<IDevice, 'id' | 'created_at' | 'updated_at'>;
 
 export const deviceApi = baseApi.injectEndpoints({
     endpoints: (build) => ({
-        getDevicesByUserId: build.query<IDevice[], number>({
-            query: (userId) => `/api/devices/user/${userId}`,
-            providesTags: (_r, _e, userId) => [{ type: 'Device', id: `USER_${userId}` }],
+        getMyDevices: build.query<IDevice[], void>({
+            query: () => '/api/me/devices',
+            providesTags: [{ type: 'Device', id: 'LIST' }],
         }),
         getDeviceById: build.query<IDevice, number>({
-            query: (id) => `/api/device/${id}`,
+            query: (id) => `/api/me/devices/${id}`,
             providesTags: (_r, _e, id) => [{ type: 'Device', id }],
         }),
         createDevice: build.mutation<IDevice, DeviceCreateBody>({
-            query: (body) => ({ url: '/api/device', method: 'POST', body }),
-            invalidatesTags: (_r, _e, body) => [
-                { type: 'Device', id: `USER_${body.user_id}` },
+            query: (body) => ({ url: '/api/me/devices', method: 'POST', body }),
+            invalidatesTags: [{ type: 'Device', id: 'LIST' }],
+        }),
+        updateDevice: build.mutation<IDevice, { id: number; patch: Partial<IDevice> }>({
+            query: ({ id, patch }) => ({ url: `/api/me/devices/${id}`, method: 'PATCH', body: patch }),
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: 'Device', id },
                 { type: 'Device', id: 'LIST' },
             ],
         }),
-        updateDevice: build.mutation<IDevice, { id: number; patch: Partial<IDevice> }>({
-            query: ({ id, patch }) => ({ url: `/api/device/${id}`, method: 'PATCH', body: patch }),
-            invalidatesTags: (_r, _e, { id, patch }) => {
-                const tags: Array<{ type: 'Device'; id: number | string }> = [
-                    { type: 'Device', id },
-                    { type: 'Device', id: 'LIST' },
-                ];
-                if (patch.user_id !== undefined) {
-                    tags.push({ type: 'Device', id: `USER_${patch.user_id}` });
-                }
-                return tags;
-            },
-        }),
         deleteDevice: build.mutation<void, number>({
-            query: (id) => ({ url: `/api/device/${id}`, method: 'DELETE' }),
+            query: (id) => ({ url: `/api/me/devices/${id}`, method: 'DELETE' }),
             invalidatesTags: (_r, _e, id) => [{ type: 'Device', id }, { type: 'Device', id: 'LIST' }],
         }),
     })
 })
 
 export const {
-    useGetDevicesByUserIdQuery,
+    useGetMyDevicesQuery,
     useGetDeviceByIdQuery,
     useCreateDeviceMutation,
     useUpdateDeviceMutation,

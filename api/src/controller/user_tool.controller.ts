@@ -1,24 +1,29 @@
 import db from '../db';
 import { Request, Response } from 'express';
 import { QueryResult } from 'pg';
-import { IdParam, IUserTool } from '../types';
+import { IUserTool } from '../types';
 
-type CreateUserToolBody = Pick<IUserTool, 'user_id' | 'tool_id'> &
+type CreateUserToolBody = Pick<IUserTool, 'tool_id'> &
   Partial<Pick<IUserTool, 'quantity'>>;
 
 type UpdateUserToolBody = Partial<Pick<IUserTool, 'quantity'>>;
 
-type UserToolParams = { user_id: string; tool_id: string };
+type UserToolParams = { tool_id: string };
 
 class UserToolController {
   // Добавить инструмент пользователю (или увеличить количество)
   async addUserTool(req: Request<{}, {}, CreateUserToolBody>, res: Response): Promise<Response> {
     try {
-      let { user_id, tool_id, quantity } = req.body;
+      const userId = req.user?.id;
+      let { tool_id, quantity } = req.body;
 
-      if (!user_id || !tool_id) {
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
+      if (!tool_id) {
         return res.status(400).json({
-          message: 'Поля user_id и tool_id обязательны'
+          message: 'Поле tool_id обязательно'
         });
       }
 
@@ -39,7 +44,7 @@ class UserToolController {
         DO UPDATE SET quantity = user_tools.quantity + EXCLUDED.quantity
         RETURNING *
         `,
-        [user_id, tool_id, quantity]
+        [userId, tool_id, quantity]
       );
 
       return res.status(201).json(result.rows[0]);
@@ -54,8 +59,15 @@ class UserToolController {
   // Получить все связи
   async getAllUserTools(req: Request, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const result: QueryResult<IUserTool[]> = await db.query(
-        'SELECT * FROM user_tools ORDER BY user_id, tool_id'
+        'SELECT * FROM user_tools WHERE user_id = $1 ORDER BY tool_id',
+        [userId]
       );
       return res.json(result.rows);
     } catch (error: any) {
@@ -66,30 +78,19 @@ class UserToolController {
     }
   }
 
-  // Получить все инструменты конкретного пользователя
-  async getUserToolsByUser(req: Request<{user_id: string}>, res: Response): Promise<Response> {
-    try {
-      const { user_id } = req.params;
-      const result: QueryResult<IUserTool[]> = await db.query(
-        'SELECT * FROM user_tools WHERE user_id = $1 ORDER BY tool_id',
-        [user_id]
-      );
-      return res.json(result.rows);
-    } catch (error: any) {
-      return res.status(500).json({
-        message: 'Ошибка при получении инструментов пользователя',
-        details: error.message
-      });
-    }
-  }
-
   // Получить всех пользователей, использующих конкретный инструмент
   async getUserToolsByTool(req: Request<{tool_id: string}>, res: Response): Promise<Response> {
     try {
+      const userId = req.user?.id;
       const { tool_id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const result: QueryResult<IUserTool[]> = await db.query(
-        'SELECT * FROM user_tools WHERE tool_id = $1 ORDER BY user_id',
-        [tool_id]
+        'SELECT * FROM user_tools WHERE user_id = $1 AND tool_id = $2 ORDER BY tool_id',
+        [userId, tool_id]
       );
       return res.json(result.rows);
     } catch (error: any) {
@@ -103,10 +104,16 @@ class UserToolController {
   // Получить конкретную связь по user_id и tool_id
   async getUserToolByIds(req: Request<UserToolParams>, res: Response): Promise<Response> {
     try {
-      const { user_id, tool_id } = req.params;
+      const userId = req.user?.id;
+      const { tool_id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const result: QueryResult<IUserTool> = await db.query(
         'SELECT * FROM user_tools WHERE user_id = $1 AND tool_id = $2',
-        [user_id, tool_id]
+        [userId, tool_id]
       );
 
       if (result.rows.length === 0) {
@@ -125,8 +132,13 @@ class UserToolController {
   // Обновить количество для конкретной связи
   async updateUserToolQuantity(req: Request<UserToolParams, {}, UpdateUserToolBody>, res: Response): Promise<Response> {
     try {
-      const { user_id, tool_id } = req.params;
+      const userId = req.user?.id;
+      const { tool_id } = req.params;
       let { quantity } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
 
       if (quantity === undefined) {
         return res.status(400).json({ message: 'Поле quantity обязательно' });
@@ -142,7 +154,7 @@ class UserToolController {
         WHERE user_id = $2 AND tool_id = $3
         RETURNING *
         `,
-        [quantity, user_id, tool_id]
+        [quantity, userId, tool_id]
       );
 
       if (result.rows.length === 0) {
@@ -161,10 +173,16 @@ class UserToolController {
   // Удалить связь (убрать инструмент у пользователя)
   async deleteUserTool(req: Request<UserToolParams>, res: Response): Promise<Response> {
     try {
-      const { user_id, tool_id } = req.params;
+      const userId = req.user?.id;
+      const { tool_id } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Необходима авторизация' });
+      }
+
       const result: QueryResult<{ user_id: number; tool_id: number }> = await db.query(
         'DELETE FROM user_tools WHERE user_id = $1 AND tool_id = $2 RETURNING user_id, tool_id',
-        [user_id, tool_id]
+        [userId, tool_id]
       );
 
       if (result.rows.length === 0) {
