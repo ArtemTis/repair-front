@@ -16,6 +16,8 @@
     "admin:typecheck": "npm run typecheck -w apps/admin",
     "api:start": "npm run start -w api",
     "api:build": "npm run build -w api",
+    "dev:docker": "docker compose up -d",
+    "dev:db": "docker compose up db -d",
     "predev": "kill-port 3000 3001 9119",
     "dev": "concurrently -k -n api,admin,host -c blue,magenta,green \"npm run api:start\" \"npm run admin:start\" \"wait-on http://localhost:3001/remoteEntry.js && npm run host:start\"",
     "build": "npm run api:build && npm run host:build && npm run admin:build",
