@@ -79,10 +79,10 @@ module.exports = (_, argv) => {
       }),
       ...(isProduction
         ? [
-            new MiniCssExtractPlugin({
-              filename: "static/css/[name].[contenthash].css",
-            }),
-          ]
+          new MiniCssExtractPlugin({
+            filename: "static/css/[name].[contenthash].css",
+          }),
+        ]
         : []),
       new ForkTsCheckerWebpackPlugin({
         async: !isProduction,
@@ -97,6 +97,7 @@ module.exports = (_, argv) => {
     },
     devServer: {
       port: 3001,
+      host: "0.0.0.0",
       historyApiFallback: {
         index: "/index.html",
         disableDotRule: true,

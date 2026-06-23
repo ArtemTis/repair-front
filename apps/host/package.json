@@ -25,6 +25,9 @@
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
     "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "analyze": "webpack --mode production --profile --json > stats.json && webpack-bundle-analyzer stats.json"
   },
   "eslintConfig": {

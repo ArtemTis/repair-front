@@ -694,7 +694,7 @@ const ChatPage = () => {
         const created = await createRepairHistory({
           device_id: reportDevice.id,
           issue_description: issue,
-          started_at: new Date(),
+          started_at: new Date().toISOString(),
           finished_at: null,
           status: "in_progress",
           work_performed: assistantMessage.text,

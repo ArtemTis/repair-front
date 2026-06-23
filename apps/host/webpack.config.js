@@ -176,6 +176,7 @@ module.exports = (_, argv) => {
 
     devServer: {
       port: 3000,
+      host: "0.0.0.0",
       historyApiFallback: true,
       hot: true,
       open: true,
