@@ -1,3 +1,4 @@
+export { PageLoader } from "./PageLoader/PageLoader";
 export { Button } from "./Button/Button";
 export { Card } from "./Card/Card";
 export { Select } from "./Select/Select";

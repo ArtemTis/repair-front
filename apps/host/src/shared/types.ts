@@ -25,6 +25,7 @@ export interface IRegisterBody {
 
 export interface IAuthResponse {
     user: IAuthUser;
+    accessToken: string;
 }
 
 export interface ISkills {
@@ -44,7 +45,6 @@ export interface ITool {
 
 export interface IDevice {
     id: number;
-    user_id: number;
     device_type: string;
     brand: string | null;
     model: string;
@@ -57,14 +57,13 @@ export interface IDevice {
 export interface IRepairGuide {
     id: number;
     title: string;
-    user_id: number;
     problem_description: string;
     instructions: string;
     recommendation: string | null;
     min_skill_level_id: number;
     created_at: Date;
     updated_at: Date;
-  }
+}
 
 export interface IArticle {
     id: number;
@@ -76,10 +75,9 @@ export interface IArticle {
     created_at: string;
     updated_at: string;
 }
-  
+
 export interface IRepairHistory {
     id: number;
-    user_id: number;
     device_id: number;
     repair_guide_id: number | null;
     started_at: string;
@@ -95,15 +93,13 @@ export interface IRepairHistory {
 }
 
 export interface IUserTool {
-    user_id: number;
     tool_id: number;
     quantity: number;
 }
-  
+
 export interface IRepairGuideTool {
     repair_guide_id: number;
     tool_id: number;
-    user_id: number;
     is_required: boolean;
     notes: string | null;
 }
@@ -120,7 +116,6 @@ export interface IAssistantChatMessage {
 
 export interface IAssistantChat {
     id: number;
-    user_id: number;
     title: string;
     created_at: string;
     updated_at: string;

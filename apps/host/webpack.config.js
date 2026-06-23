@@ -1,9 +1,16 @@
 const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const ForkTsCheckerWebpackPlugin = require("fork-ts-checker-webpack-plugin");
 const DotenvWebpack = require("dotenv-webpack");
+const { ModuleFederationPlugin } = require("webpack").container;
+const shared = require("./webpack.shared");
+
+const adminRemoteUrl =
+  process.env.ADMIN_REMOTE_URL || "http://localhost:3001";
+const adminRemoteEntry = `${adminRemoteUrl.replace(/\/$/, "")}/remoteEntry.js`;
 
 module.exports = (_, argv) => {
   const isProduction = argv.mode === "production";
@@ -18,6 +25,7 @@ module.exports = (_, argv) => {
         ? "static/js/[name].[contenthash].chunk.js"
         : "static/js/[name].chunk.js",
       publicPath: "/",
+      uniqueName: "host",
       clean: true,
     },
 
@@ -63,6 +71,52 @@ module.exports = (_, argv) => {
     },
 
     plugins: [
+      new ModuleFederationPlugin({
+        name: "host",
+        remotes: {
+          admin: `promise new Promise((resolve, reject) => {
+            const remoteUrl = "${adminRemoteEntry}";
+            const timeoutMs = 30000;
+
+            const resolveContainer = () => {
+              const container = window.admin;
+              if (!container || typeof container.get !== "function") {
+                return false;
+              }
+              resolve(container);
+              return true;
+            };
+
+            if (resolveContainer()) {
+              return;
+            }
+
+            const timeoutId = setTimeout(() => {
+              clearInterval(pollId);
+              reject(new Error("Admin remote timeout: " + remoteUrl));
+            }, timeoutMs);
+
+            const pollId = setInterval(() => {
+              if (resolveContainer()) {
+                clearTimeout(timeoutId);
+                clearInterval(pollId);
+              }
+            }, 50);
+
+            const script = document.createElement("script");
+            script.src = remoteUrl;
+            script.async = true;
+            script.onerror = () => {
+              clearTimeout(timeoutId);
+              clearInterval(pollId);
+              reject(new Error("Failed to load admin remote: " + remoteUrl));
+            };
+            document.head.appendChild(script);
+          })`,
+        },
+        shared,
+      }),
+
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, "public", "index.html"),
       }),
@@ -82,13 +136,12 @@ module.exports = (_, argv) => {
 
       ...(isProduction
         ? [
-
-          new MiniCssExtractPlugin({
-            filename: isProduction
-              ? "static/css/[name].[contenthash].css"
-              : "static/css/[name].css",
-          }),
-        ]
+            new MiniCssExtractPlugin({
+              filename: isProduction
+                ? "static/css/[name].[contenthash].css"
+                : "static/css/[name].css",
+            }),
+          ]
         : []),
 
       new ForkTsCheckerWebpackPlugin({
@@ -101,28 +154,11 @@ module.exports = (_, argv) => {
     ],
 
     optimization: {
-      runtimeChunk: "single",
       splitChunks: {
         chunks: "all",
         maxInitialRequests: 30,
         maxAsyncRequests: 30,
         cacheGroups: {
-          react: {
-            test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
-            name: "react",
-            priority: 40,
-            enforce: true,
-          },
-          router: {
-            test: /[\\/]node_modules[\\/](react-router|react-router-dom)[\\/]/,
-            name: "router",
-            priority: 30,
-          },
-          redux: {
-            test: /[\\/]node_modules[\\/](@reduxjs|react-redux|redux)[\\/]/,
-            name: "redux",
-            priority: 25,
-          },
           markdown: {
             test: /[\\/]node_modules[\\/](react-markdown|remark-gfm|unified|micromark|mdast-util-|hast-util-|unist-util-|vfile)[\\/]/,
             name: "markdown",

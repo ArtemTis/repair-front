@@ -1,56 +1,33 @@
-import type { IUser } from "../types";
+import type { IAuthUser, IUser } from "../types";
 import { baseApi } from "./baseApi";
 
-type UserCreateBody = Omit<IUser, "id" | "created_at" | "updated_at">;
 type UserUpdateBody = Partial<
   Omit<IUser, "id" | "email" | "created_at" | "updated_at">
 >;
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getUsers: build.query<IUser[], void>({
-      query: () => "/api/users",
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ id }) => ({ type: "User" as const, id })),
-              { type: "User", id: "LIST" },
-            ]
-          : [{ type: "User", id: "LIST" }],
+    getMe: build.query<IAuthUser, void>({
+      query: () => "/api/me",
+      providesTags: [{ type: "User", id: "ME" }],
     }),
-    getUserById: build.query<IUser, number>({
-      query: (id) => `/api/user/${id}`,
-      providesTags: (_r, _e, id) => [{ type: "User", id }],
-    }),
-    createUser: build.mutation<IUser, UserCreateBody>({
-      query: (body) => ({ url: "/api/user", method: "POST", body }),
-      invalidatesTags: [{ type: "User", id: "LIST" }],
-    }),
-    updateUser: build.mutation<IUser, { id: number; patch: UserUpdateBody }>({
-      query: ({ id, patch }) => ({
-        url: `/api/user/${id}`,
+    updateMe: build.mutation<IAuthUser, UserUpdateBody>({
+      query: (patch) => ({
+        url: "/api/me",
         method: "PATCH",
         body: patch,
       }),
-      invalidatesTags: (_r, _e, { id }) => [
-        { type: "User", id },
-        { type: "User", id: "LIST" },
-      ],
+      invalidatesTags: [{ type: "User", id: "ME" }],
     }),
-    deleteUser: build.mutation<void, number>({
-      query: (id) => ({ url: `/api/user/${id}`, method: "DELETE" }),
-      invalidatesTags: (_r, _e, id) => [
-        { type: "User", id },
-        { type: "User", id: "LIST" },
-      ],
+    deleteMe: build.mutation<void, void>({
+      query: () => ({ url: "/api/me", method: "DELETE" }),
+      invalidatesTags: [{ type: "User", id: "ME" }],
     }),
   }),
 });
 
 export const {
-  useGetUsersQuery,
-  useGetUserByIdQuery,
-  useCreateUserMutation,
-  useUpdateUserMutation,
-  useDeleteUserMutation,
+  useGetMeQuery,
+  useUpdateMeMutation,
+  useDeleteMeMutation,
 } = usersApi;

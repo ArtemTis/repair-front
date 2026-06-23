@@ -4,17 +4,17 @@ import { baseApi } from "./baseApi";
 export const repairGuideToolsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getAllRepairGuideTools: build.query<IRepairGuideTool[], void>({
-      query: () => "/api/repair-guide-tools",
+      query: () => "/api/me/repair-guide-tools",
       providesTags: [{ type: "RepairGuideTool", id: "LIST" }],
     }),
     getRepairGuideToolsByGuideId: build.query<IRepairGuideTool[], number>({
-      query: (guideId) => `/api/repair-guide-tools/guide/${guideId}`,
+      query: (guideId) => `/api/me/repair-guide-tools/guide/${guideId}`,
       providesTags: (_r, _e, guideId) => [
         { type: "RepairGuideTool", id: `GUIDE_${guideId}` },
       ],
     }),
     getRepairGuideToolsByToolId: build.query<IRepairGuideTool[], number>({
-      query: (toolId) => `/api/repair-guide-tools/tool/${toolId}`,
+      query: (toolId) => `/api/me/repair-guide-tools/tool/${toolId}`,
       providesTags: (_r, _e, toolId) => [
         { type: "RepairGuideTool", id: `TOOL_${toolId}` },
       ],
@@ -24,7 +24,7 @@ export const repairGuideToolsApi = baseApi.injectEndpoints({
       { guideId: number; toolId: number }
     >({
       query: ({ guideId, toolId }) =>
-        `/api/repair-guide-tool/${guideId}/${toolId}`,
+        `/api/me/repair-guide-tools/${guideId}/${toolId}`,
       providesTags: (_r, _e, { guideId, toolId }) => [
         { type: "RepairGuideTool", id: `${guideId}_${toolId}` },
       ],
@@ -34,7 +34,7 @@ export const repairGuideToolsApi = baseApi.injectEndpoints({
       IRepairGuideTool
     >({
       query: (body) => ({
-        url: "/api/repair-guide-tool",
+        url: "/api/me/repair-guide-tools",
         method: "POST",
         body,
       }),
@@ -53,7 +53,7 @@ export const repairGuideToolsApi = baseApi.injectEndpoints({
       }
     >({
       query: ({ guideId, toolId, patch }) => ({
-        url: `/api/repair-guide-tool/${guideId}/${toolId}`,
+        url: `/api/me/repair-guide-tools/${guideId}/${toolId}`,
         method: "PATCH",
         body: patch,
       }),
@@ -69,7 +69,7 @@ export const repairGuideToolsApi = baseApi.injectEndpoints({
       { guideId: number; toolId: number }
     >({
       query: ({ guideId, toolId }) => ({
-        url: `/api/repair-guide-tool/${guideId}/${toolId}`,
+        url: `/api/me/repair-guide-tools/${guideId}/${toolId}`,
         method: "DELETE",
       }),
       invalidatesTags: (_r, _e, { guideId, toolId }) => [
